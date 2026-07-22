@@ -120,7 +120,8 @@
   .chip b{font-family:'Lexend', sans-serif; margin-left:6px;}
 
   table.rev{width:100%; border-collapse:collapse; margin-top:6px;}
-  table.rev th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); padding:9px 10px; border-bottom:1px solid var(--border); font-weight:600;}
+  table.rev th{text-align:left; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-faint); padding:9px 10px; border-bottom:1px solid var(--border); font-weight:600; white-space:nowrap;}
+  table.rev td{white-space:nowrap;}
   table.rev td{padding:12px 10px; font-size:13.5px; border-bottom:1px solid var(--border);}
   table.rev tr:last-child td{border-bottom:none;}
   table.rev tbody tr{cursor:pointer; transition:.12s;}
@@ -129,7 +130,8 @@
   table.rev tbody tr.active-row:hover{background:var(--accent-soft);}
   table.rev td.num{font-family:'Lexend', sans-serif; text-align:right;}
 
-  .rev-layout{display:grid; grid-template-columns:1fr 340px; gap:20px;}
+  .rev-layout{display:grid; grid-template-columns:1fr 380px; gap:20px;}
+  .rev-side table.rev td, .rev-side table.rev th{padding-left:8px; padding-right:8px;}
   .rev-side{position:sticky; top:20px; align-self:start;}
   @media(max-width:1100px){ .rev-layout{grid-template-columns:1fr;} .rev-side{position:static;} }
   .bar-cell{display:flex; align-items:center; gap:8px;}
@@ -137,7 +139,8 @@
   .bar-fill{height:100%; border-radius:5px;}
 
   #records{margin-top:16px; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); overflow:hidden; box-shadow:var(--shadow-sm); scroll-margin-top:20px;}
-  #records.flash{animation:flash 0.8s ease;}
+  #records.flash, #recordsRev.flash{animation:flash 0.8s ease;}
+  #recordsRev{scroll-margin-top:20px;}
   @keyframes flash{0%{box-shadow:0 0 0 3px var(--accent-soft), var(--shadow-sm);} 100%{box-shadow:var(--shadow-sm);}}
   .records-head{display:flex; align-items:center; justify-content:space-between; gap:16px; padding:20px 24px; border-bottom:1px solid var(--border); flex-wrap:wrap;}
   .records-title{display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
@@ -759,6 +762,13 @@ function renderMonthlyTrend(){
     const d = byMonth[k]; const pct = d.revenue ? ((d.margin/d.revenue)*100).toFixed(1) : "0.0";
     const tr=document.createElement("tr");
     tr.innerHTML=`<td>${d.label}</td><td class="num">${fmtINR(d.revenue)}</td><td class="num">${fmtINR(d.margin)}</td><td class="num">${pct}%</td>`;
+    tr.title = "Open " + d.label + "'s projects in a new tab";
+    tr.addEventListener("click", ()=>{
+      const url = new URL(window.location.href);
+      url.search = "?month=" + k;
+      url.hash = "";
+      window.open(url.toString(), "_blank");
+    });
     tbody.appendChild(tr);
   });
 }
@@ -768,8 +778,36 @@ function renderAll(){
   renderRevenue();
 }
 
+/* ---------------- Deep-link: ?month=YYYY-MM opens straight to that month's projects ---------------- */
+function applyMonthParam(){
+  const month = new URLSearchParams(window.location.search).get("month");
+  if(!month) return;
+  const [y,m] = month.split("-").map(Number);
+  if(!y || !m) return;
+
+  activePage = "revenue";
+  document.querySelectorAll(".pagetab").forEach(t=>t.classList.toggle("active", t.dataset.page==="revenue"));
+  document.querySelectorAll(".page").forEach(pg=>pg.classList.toggle("active", pg.id==="page-revenue"));
+
+  timeRev.view = "Monthly";
+  timeRev.asOf = new Date(y, m-1, 1);
+  [...document.getElementById("segViewRev").children].forEach(c=>c.classList.toggle("active", c.textContent==="Monthly"));
+  const dateInput = document.getElementById("asOfDateRev");
+  if(dateInput) dateInput.valueAsDate = timeRev.asOf;
+
+  renderRevenue();
+  setTimeout(()=>{
+    const el = document.getElementById("recordsRev");
+    if(!el) return;
+    el.scrollIntoView({behavior:"smooth", block:"start"});
+    el.classList.add("flash");
+    setTimeout(()=>el.classList.remove("flash"), 900);
+  }, 200);
+}
+
 /* ---------------- Boot ---------------- */
 renderAll();
+applyMonthParam();
 syncData();
 </script>
 </body>

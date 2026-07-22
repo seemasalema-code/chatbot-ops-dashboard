@@ -793,7 +793,7 @@ function applyMonthParam(){
   timeRev.asOf = new Date(y, m-1, 1);
   [...document.getElementById("segViewRev").children].forEach(c=>c.classList.toggle("active", c.textContent==="Monthly"));
   const dateInput = document.getElementById("asOfDateRev");
-  if(dateInput) dateInput.valueAsDate = timeRev.asOf;
+  if(dateInput) dateInput.value = `${y}-${String(m).padStart(2,"0")}-01`;
 
   renderRevenue();
   setTimeout(()=>{

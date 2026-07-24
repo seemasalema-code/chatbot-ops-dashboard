@@ -82,7 +82,8 @@
   .timebar input[type=date]{font-family:'IBM Plex Mono',monospace; font-size:12.5px; border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); background:var(--surface);}
   .period-label{margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--text-faint);}
   .period-stats{display:grid; grid-template-columns:repeat(auto-fit, minmax(110px, 1fr)); gap:10px; margin-top:12px;}
-  .pstat{background:var(--surface-alt); border-radius:10px; padding:10px 12px;}
+  .pstat{background:var(--surface-alt); border-radius:10px; padding:10px 12px; transition:.12s;}
+  .pstat.clickable:hover{background:var(--accent-soft); transform:translateY(-1px);}
   .pstat .pn{font-family:'Inter',sans-serif; font-size:20px; font-weight:800;}
   .pstat .pl{font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.04em; margin-top:2px;}
 
@@ -383,7 +384,23 @@ function tableToRows(table){
   }));
 }
 function colIndexer(headerRow){ const idx={}; headerRow.forEach((h,i)=>{ if(h) idx[h.trim()]=i; }); return name=>idx[name]; }
-function parseDate(s){ if(!s) return null; const d = new Date(s); return isNaN(d) ? null : d; }
+function parseDate(s){
+  if(!s) return null;
+  s = String(s).trim();
+  if(!s) return null;
+  let m = s.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{4})$/);
+  if(m){
+    const months = {Jan:0,Feb:1,Mar:2,Apr:3,May:4,Jun:5,Jul:6,Aug:7,Sep:8,Oct:9,Nov:10,Dec:11};
+    const mo = months[m[2].slice(0,1).toUpperCase()+m[2].slice(1,3).toLowerCase()];
+    if(mo !== undefined){ const d = new Date(+m[3], mo, +m[1]); return isNaN(d) ? null : d; }
+  }
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(m){ const d = new Date(+m[3], +m[1]-1, +m[2]); return isNaN(d) ? null : d; }
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m){ const d = new Date(+m[1], +m[2]-1, +m[3]); return isNaN(d) ? null : d; }
+  const d = new Date(s);
+  return isNaN(d) ? null : d;
+}
 function simpleHash(str){ let h=0; for(let i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))|0; } return h; }
 
 async function fetchSheetRows(sheetName){
@@ -401,7 +418,7 @@ async function syncData(){
     lastCsvHash = combinedHash;
 
     const projRows = proj.rows, commRows = comm.rows;
-    const pHeaderIdx = projRows.findIndex(r => ["Chatbot","Client Name"].includes((r[0]||"").trim()));
+    const pHeaderIdx = projRows.findIndex(r => r.some(c => ["Chatbot","Client Name"].includes((c||"").trim())));
     if(pHeaderIdx === -1) throw new Error("Couldn't find header row in '" + TAB_PROJECTS + "'");
     const pCol = colIndexer(projRows[pHeaderIdx]);
     const cClient=pCol("Chatbot") ?? pCol("Client Name"),
@@ -424,7 +441,7 @@ async function syncData(){
       if(cDelay!==undefined && (r[cDelay]||"").trim().startsWith("Delayed")) delayed++;
     }
 
-    const cHeaderIdx = commRows.findIndex(r => (r[0]||"").trim() === "Chatbot Project (Live)");
+    const cHeaderIdx = commRows.findIndex(r => r.some(c => ["Chatbot Project (Live)","Chatbot"].includes((c||"").trim())));
     const newCommercials = [];
     if(cHeaderIdx !== -1){
       const kCol = colIndexer(commRows[cHeaderIdx]);
@@ -558,7 +575,12 @@ function renderChatbots(){
   const byStage={}; STAGE_ORDER.forEach(s=>byStage[s]=PROJECTS.filter(p=>p.stage===s).length);
   const pstats = STAGE_ORDER.map(s => ({l:s, n:byStage[s]}));
   const psEl = document.getElementById("periodStats"); psEl.innerHTML="";
-  pstats.forEach(s=>{ const d=document.createElement("div"); d.className="pstat"; d.innerHTML=`<div class="pn">${s.n}</div><div class="pl">${s.l}</div>`; psEl.appendChild(d); });
+  pstats.forEach(s=>{
+    const d=document.createElement("div"); d.className="pstat clickable"; d.style.cursor="pointer";
+    d.innerHTML=`<div class="pn">${s.n}</div><div class="pl">${s.l}</div>`;
+    d.addEventListener("click", ()=>setStage(s.l));
+    psEl.appendChild(d);
+  });
 
   // date-filtered milestone stats (Discovery Started removed per request)
   const {start,end} = periodBounds(timeChat);

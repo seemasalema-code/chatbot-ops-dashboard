@@ -251,7 +251,7 @@
       </div>
       <div class="records-body">
         <table class="data">
-          <thead><tr id="recordsHeadRow"><th>Client</th><th>Bot Type</th><th>Vendor</th><th>Stage</th></tr></thead>
+          <thead><tr id="recordsHeadRow"><th>Chatbot</th><th>Bot Type</th><th>Vendor</th><th>Stage</th></tr></thead>
           <tbody id="recordsBody"></tbody>
         </table>
       </div>
@@ -421,19 +421,21 @@ async function syncData(){
     const projRows = proj.rows, commRows = comm.rows;
     const pHeaderIdx = projRows.findIndex(r => (r[1]||"").trim() === "Chatbot");
     if(pHeaderIdx === -1) throw new Error("Couldn't find header row in '" + TAB_PROJECTS + "'");
-    // Column positions are fixed by sheet layout (col 0 "Client" is a blank helper column;
-    // the real client name is col 1 "Chatbot"). Some header cells' label text gets stripped by
+    // Column positions are fixed by sheet layout: col 0 is "Client" (the company name —
+    // multiple rows can share the same client) and col 1 is "Chatbot" (the specific
+    // project/bot name, unique per row). Some header cells' label text gets stripped by
     // the Sheets export when that cell has a date/number format applied, so name-based lookup
     // is unreliable here — address columns by position instead.
-    const cClient=1, cPlatform=3, cAIEnabled=4, cVendor=5, cStatus=6, cDelay=18,
+    const cClient=0, cChatbot=1, cPlatform=3, cAIEnabled=4, cVendor=5, cStatus=6, cDelay=18,
           cBrief=7, cComm=8, cDev=11, cTest=12, cActualLive=14, cDaysToGo=17;
     const newProjects = []; let delayed = 0;
     for(let i=pHeaderIdx+1;i<projRows.length;i++){
-      const r = projRows[i]; const client = (r[cClient]||"").trim();
-      if(!client) continue;
+      const r = projRows[i]; const chatbot = (r[cChatbot]||"").trim();
+      if(!chatbot) continue;
+      const client = (r[cClient]||"").trim() || chatbot;
       const status = (r[cStatus]||"").trim(), platform = (r[cPlatform]||"").trim();
       newProjects.push({
-        client, platform, vendor:(r[cVendor]||"").trim(), status,
+        client, chatbot, platform, vendor:(r[cVendor]||"").trim(), status,
         aiEnabled: (r[cAIEnabled]||"").trim(),
         stage: toStage(status), type: toType(platform),
         dates:{ brief:parseDate(r[cBrief]), comm:parseDate(r[cComm]), dev:parseDate(r[cDev]), test:parseDate(r[cTest]), liveDate:parseDate(r[cActualLive]) },
@@ -447,13 +449,15 @@ async function syncData(){
     if(cHeaderIdx !== -1){
       // Same fixed-position addressing as above — several header cells in this tab
       // (No of Paid Agents / Per Agent Pricing / etc.) are currency-formatted and their
-      // label text is stripped on export.
-      const kProj=1, kVendor=5, kLive=7, kCost=19, kRev=31, kMargin=32;
+      // label text is stripped on export. Col 0 is "Client" (company name), col 1 is
+      // "Chatbot" (specific project name, used to join back to PROJECTS).
+      const kClient=0, kChatbot=1, kVendor=5, kLive=7, kCost=19, kRev=31, kMargin=32;
       const num = s => { const n = parseFloat((s||"0").toString().replace(/[₹,]/g,"")); return isNaN(n)?0:n; };
       for(let i=cHeaderIdx+1;i<commRows.length;i++){
-        const r = commRows[i]; const cname = (r[kProj]||"").trim();
-        if(!cname) continue;
-        newCommercials.push({ client:cname, vendor:(r[kVendor]||"").trim()||"Unassigned",
+        const r = commRows[i]; const chatbot = (r[kChatbot]||"").trim();
+        if(!chatbot) continue;
+        const client = (r[kClient]||"").trim() || chatbot;
+        newCommercials.push({ client, chatbot, vendor:(r[kVendor]||"").trim()||"Unassigned",
           dateOfLive: parseDate(r[kLive]), revenue:num(r[kRev]), cost:num(r[kCost]), margin:num(r[kMargin]) });
       }
     }
@@ -667,13 +671,13 @@ function renderChatbots(){
   }[filters.stage];
 
   const headRow = document.getElementById("recordsHeadRow");
-  headRow.innerHTML = `<th>Client</th><th>Bot Type</th><th>Vendor</th><th>Stage</th>` + (EXTRA_COL ? `<th>${EXTRA_COL.header}</th>` : "");
+  headRow.innerHTML = `<th>Chatbot</th><th>Bot Type</th><th>Vendor</th><th>Stage</th>` + (EXTRA_COL ? `<th>${EXTRA_COL.header}</th>` : "");
 
   if(rows.length===0){ recordsBody.innerHTML=`<tr><td colspan="${EXTRA_COL?5:4}"><div class="empty-state">No records match this filter.</div></td></tr>`; }
   else{
     rows.forEach(p=>{
       const c=stageColor(p.stage)||"#666F94"; const tr=document.createElement("tr");
-      tr.innerHTML=`<td>${p.client}</td><td>${p.platform||"—"}</td>
+      tr.innerHTML=`<td>${p.chatbot}</td><td>${p.platform||"—"}</td>
         <td><span class="vendor-tag" style="color:${vendorColor(p.vendor)}">${p.vendor||"—"}</span></td>
         <td><span class="status-pill" style="background:${c}1F; color:${c}"><span class="d" style="background:${c}"></span>${p.status||p.stage}</span></td>`
         + (EXTRA_COL ? `<td>${EXTRA_COL.cell(p)}</td>` : "");
@@ -697,7 +701,7 @@ function makeCrumb(label,onClear){
 const revFilter = { vendor:null, type:null };
 function setRevVendor(v){ revFilter.vendor = (revFilter.vendor===v)?null:v; renderRevenue(); }
 function setRevType(t){ revFilter.type = (revFilter.type===t)?null:t; renderRevenue(); }
-function typeOfCommercial(c){ const proj=PROJECTS.find(p=>p.client===c.client); return proj?proj.type:"Other"; }
+function typeOfCommercial(c){ const proj=PROJECTS.find(p=>p.chatbot===c.chatbot); return proj?proj.type:"Other"; }
 
 function renderRevenue(){
   const {start,end} = periodBounds(timeRev);

@@ -283,7 +283,7 @@
             <div class="rec-count" id="recCountRev"></div>
           </div>
           <div class="records-body">
-            <table class="data"><thead><tr><th>Client</th><th>Vendor</th><th>Bot Type</th><th>Date of Live</th><th style="text-align:right">Revenue</th><th style="text-align:right">Cost</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="revRecordsBody"></tbody></table>
+            <table class="data"><thead><tr><th>Client</th><th style="text-align:right">Projects</th><th style="text-align:right">Revenue</th><th style="text-align:right">Cost</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="revRecordsBody"></tbody></table>
           </div>
         </section>
       </div>
@@ -758,16 +758,24 @@ function renderRevenue(){
   if(revFilter.type) crumbsRev.appendChild(makeCrumb("Type: "+revFilter.type, ()=>setRevType(revFilter.type)));
 
   const body=document.getElementById("revRecordsBody"); body.innerHTML="";
-  if(filteredPeriod.length===0){ body.innerHTML=`<tr><td colspan="8"><div class="empty-state">No live projects match this filter.</div></td></tr>`; }
-  else filteredPeriod.forEach(c=>{
-    const pct = c.revenue ? ((c.margin/c.revenue)*100).toFixed(1) : "0.0";
+  const byClientTotals = {};
+  filteredPeriod.forEach(c=>{
+    if(!byClientTotals[c.client]) byClientTotals[c.client] = {revenue:0, cost:0, margin:0, count:0};
+    byClientTotals[c.client].revenue += c.revenue;
+    byClientTotals[c.client].cost += c.cost;
+    byClientTotals[c.client].margin += c.margin;
+    byClientTotals[c.client].count += 1;
+  });
+  const clientRows = Object.keys(byClientTotals).map(cl=>({client:cl, ...byClientTotals[cl]})).sort((a,b)=>b.revenue-a.revenue);
+  if(clientRows.length===0){ body.innerHTML=`<tr><td colspan="6"><div class="empty-state">No live projects match this filter.</div></td></tr>`; }
+  else clientRows.forEach(r=>{
+    const pct = r.revenue ? ((r.margin/r.revenue)*100).toFixed(1) : "0.0";
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${c.client}</td><td><span class="vendor-tag" style="color:${vendorColor(c.vendor)}">${c.vendor}</span></td>
-      <td>${typeOfCommercial(c)}</td><td>${c.dateOfLive?fmtD(c.dateOfLive):"—"}</td><td class="num">${fmtINR(c.revenue)}</td>
-      <td class="num">${fmtINR(c.cost)}</td><td class="num">${fmtINR(c.margin)}</td><td class="num">${pct}%</td>`;
+    tr.innerHTML=`<td>${r.client}</td><td class="num">${r.count}</td><td class="num">${fmtINR(r.revenue)}</td>
+      <td class="num">${fmtINR(r.cost)}</td><td class="num">${fmtINR(r.margin)}</td><td class="num">${pct}%</td>`;
     body.appendChild(tr);
   });
-  document.getElementById("recCountRev").textContent = filteredPeriod.length + (filteredPeriod.length===1?" record":" records");
+  document.getElementById("recCountRev").textContent = clientRows.length + (clientRows.length===1?" client":" clients");
 
   renderMonthlyTrend();
 }

@@ -80,6 +80,8 @@
   .seg button{border:none; background:transparent; font-family:'Lexend', sans-serif; font-weight:600; font-size:12.5px; color:var(--text-dim); padding:7px 14px; border-radius:8px; cursor:pointer; transition:.12s;}
   .seg button.active{background:var(--accent); color:#fff;}
   .timebar input[type=date]{font-family:'Lexend', sans-serif; font-size:12.5px; border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); background:var(--surface);}
+  .timebar input[type=text], .timebar select{font-family:'Lexend', sans-serif; font-size:12.5px; border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); background:var(--surface);}
+  .timebar input[type=text]{min-width:260px;}
   .period-label{margin-left:auto; font-family:'Lexend', sans-serif; font-size:12px; color:var(--text-faint);}
   .period-stats{display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-top:12px;}
   .pstat{background:var(--surface-alt); border-radius:10px; padding:10px 12px;}
@@ -161,6 +163,20 @@
   .vendor-tag{font-family:'Lexend', sans-serif; font-size:12px; font-weight:600;}
   .empty-state{padding:60px 20px; text-align:center; color:var(--text-faint); font-family:'Lexend', sans-serif; font-size:13px;}
   .raw-note{font-size:11px; color:var(--text-faint); margin-top:2px;}
+
+  /* Client Summary page */
+  .cs-group-title{font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:14px;}
+  .cs-stat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px;}
+  .cs-stat{background:var(--surface-alt); border-radius:10px; padding:14px 16px;}
+  .cs-stat .l{font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; font-weight:600;}
+  .cs-stat .v{font-family:'Lexend', sans-serif; font-size:19px; font-weight:700; margin-top:6px;}
+  .cs-groups{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:16px;}
+  .cs-empty{padding:70px 20px; text-align:center; color:var(--text-faint); font-family:'Lexend', sans-serif; font-size:13.5px;}
+  .trend-row{display:flex; align-items:center; gap:12px; padding:7px 0;}
+  .trend-row .tm{width:78px; font-size:12px; color:var(--text-dim); flex-shrink:0;}
+  .trend-row .td{width:90px; text-align:right; font-family:'Lexend', sans-serif; font-size:12px; font-weight:600; flex-shrink:0;}
+  .trend-up{color:var(--live);} .trend-down{color:var(--delay);} .trend-flat{color:var(--text-faint);}
+  @media(max-width:960px){ .cs-groups{grid-template-columns:1fr;} }
 
   footer{max-width:1360px; margin:30px auto 0; padding:0 40px; color:var(--text-faint); font-size:12px; font-family:'Lexend', sans-serif;}
 
@@ -297,7 +313,74 @@
     </div>
   </section>
 
-  <footer>Netcore Cloud — Chatbot Projects · syncing live from the Chatbot Projects &amp; Commercials sheets</footer>
+  <!-- ===================== PAGE: CLIENT SUMMARY ===================== -->
+  <section class="page" id="page-clientsummary">
+    <div class="timebar">
+      <div class="tf-group"><label>Year</label><select id="csYear"></select></div>
+      <div class="tf-group"><label>Month</label><select id="csMonth"></select></div>
+      <div class="tf-group" style="flex:1; min-width:280px;">
+        <label>Client</label>
+        <input type="text" id="csClientInput" placeholder="Type a client name…" autocomplete="off" list="csClientDatalist">
+        <datalist id="csClientDatalist"></datalist>
+      </div>
+      <button id="csClearBtn" style="border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-family:'Lexend',sans-serif; font-weight:600; font-size:12px; padding:8px 14px; border-radius:20px; cursor:pointer;">Clear</button>
+    </div>
+
+    <div id="csEmpty" class="panel cs-empty" style="margin-top:16px;">Type a client name above and pick it from the dropdown list to see their revenue, cost and margin summary.</div>
+
+    <div id="csContent" style="display:none;">
+      <div class="cs-groups">
+        <div class="panel">
+          <div class="cs-group-title">Commercials</div>
+          <div class="cs-stat-grid">
+            <div class="cs-stat"><div class="l">Revenue</div><div class="v" id="csCommRev">—</div></div>
+            <div class="cs-stat"><div class="l">Cost</div><div class="v" id="csCommCost">—</div></div>
+            <div class="cs-stat"><div class="l">Margin</div><div class="v" id="csCommMargin">—</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="cs-group-title">Consumable</div>
+          <div class="cs-stat-grid">
+            <div class="cs-stat"><div class="l">Revenue</div><div class="v" id="csConsRev">—</div></div>
+            <div class="cs-stat"><div class="l">Cost</div><div class="v" id="csConsCost">—</div></div>
+            <div class="cs-stat"><div class="l">Margin</div><div class="v" id="csConsMargin">—</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <div class="cs-group-title">Total (Commercials + Consumable)</div>
+          <div class="cs-stat-grid">
+            <div class="cs-stat"><div class="l">Revenue</div><div class="v" id="csTotRev">—</div></div>
+            <div class="cs-stat"><div class="l">Cost</div><div class="v" id="csTotCost">—</div></div>
+            <div class="cs-stat"><div class="l">Margin</div><div class="v" id="csTotMargin">—</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-top:16px;">
+        <h2>Month-over-Month Trend <small>Total Revenue · green = growth, red = decline</small></h2>
+        <div id="csTrendSummary" style="font-size:13px; color:var(--text-dim); margin-bottom:14px;"></div>
+        <div id="csTrendChart"></div>
+      </div>
+
+      <div class="panel" style="margin-top:16px;">
+        <h2>Month-wise Breakdown</h2>
+        <div style="overflow-x:auto;">
+          <table class="rev" id="csMonthlyTable">
+            <thead><tr>
+              <th>Month</th>
+              <th style="text-align:right">Comm. Rev</th><th style="text-align:right">Comm. Cost</th><th style="text-align:right">Comm. Margin</th>
+              <th style="text-align:right">Cons. Rev</th><th style="text-align:right">Cons. Cost</th><th style="text-align:right">Cons. Margin</th>
+              <th style="text-align:right">Total Rev</th><th style="text-align:right">Total Cost</th><th style="text-align:right">Total Margin</th>
+              <th style="text-align:right">MoM</th>
+            </tr></thead>
+            <tbody id="csMonthlyBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>Netcore Cloud — Chatbot Projects · syncing live from the Chatbot Projects, Commercials, Consumable &amp; Client List sheets</footer>
 </main>
 
 <script>
@@ -309,6 +392,8 @@
 const SHEET_ID = "1SQxJ-m_0N06qEJS4kCnC4sPJtciwJg54nINL9_FZVNs";
 const TAB_PROJECTS = "Chatbot Projects";
 const TAB_COMMERCIALS = "Commercials";
+const TAB_CONSUMABLE = "Consumable";
+const TAB_CLIENTLIST = "Client List";
 const REFRESH_MS = 60000;
 
 /* ---------------- Taxonomy (literal — mirrors the sheet's own Status / Bot Type text) ----------------
@@ -351,6 +436,8 @@ let PROJECTS = [
 ].map(([client,platform,vendor,status])=>({client,platform,vendor,status,stage:toStage(status),type:toType(platform),dates:{}}));
 let DELAYED_COUNT = 0;
 let COMMERCIALS = []; // {client, vendor, dateOfLive(Date|null), revenue, cost, margin}
+let CONSUMABLE = []; // {client, month(Date|null), revenue, cost, margin}
+let CLIENT_NAMES = []; // union of Client List sheet + every client name seen in Projects/Commercials/Consumable
 let usingLiveData = false;
 let lastCsvHash = null;
 
@@ -414,7 +501,13 @@ async function syncData(){
   setSyncState("connecting");
   try{
     const [proj, comm] = await Promise.all([fetchSheetRows(TAB_PROJECTS), fetchSheetRows(TAB_COMMERCIALS)]);
-    const combinedHash = simpleHash(proj.raw + "||" + comm.raw);
+    // Consumable / Client List are fetched separately and tolerate failure (e.g. tab renamed) —
+    // a problem with either of these should not take down the core Chatbots/Revenue pages.
+    let cons = {rows:[], raw:""}, clList = {rows:[], raw:""};
+    try{ cons = await fetchSheetRows(TAB_CONSUMABLE); }catch(e){ console.warn("Consumable sheet fetch failed:", e); }
+    try{ clList = await fetchSheetRows(TAB_CLIENTLIST); }catch(e){ console.warn("Client List sheet fetch failed:", e); }
+
+    const combinedHash = simpleHash(proj.raw + "||" + comm.raw + "||" + cons.raw + "||" + clList.raw);
     const changed = lastCsvHash !== null && combinedHash !== lastCsvHash;
     lastCsvHash = combinedHash;
 
@@ -462,7 +555,42 @@ async function syncData(){
       }
     }
 
-    PROJECTS = newProjects; DELAYED_COUNT = delayed; COMMERCIALS = newCommercials; usingLiveData = true;
+    // Consumable sheet — layout confirmed against the sheet's own formulas: col A = Client,
+    // col B = Month (first-of-month date), col C = Revenue, col D = Cost. Data can start after
+    // one or more header/title rows, so scan for the first row that actually looks like data
+    // (a client name plus a parseable date in the Month column) instead of assuming a fixed row.
+    const consRows = cons.rows;
+    const newConsumable = [];
+    let consDataStart = -1;
+    for(let i=0;i<consRows.length;i++){
+      const r = consRows[i];
+      if((r[0]||"").toString().trim() && parseDate(r[1])){ consDataStart = i; break; }
+    }
+    if(consDataStart !== -1){
+      const num = s => { const n = parseFloat((s||"0").toString().replace(/[₹,]/g,"")); return isNaN(n)?0:n; };
+      for(let i=consDataStart;i<consRows.length;i++){
+        const r = consRows[i];
+        const client = (r[0]||"").toString().trim();
+        const month = parseDate(r[1]);
+        if(!client || !month) continue;
+        const revenue = num(r[2]), cost = num(r[3]);
+        newConsumable.push({ client, month, revenue, cost, margin: revenue-cost });
+      }
+    }
+
+    // Client List sheet — one company name per row (header row, if any, is filtered out below).
+    // Unioned with every client name actually seen in the other three tabs so the autocomplete
+    // dropdown always covers real data even if Client List hasn't been updated yet.
+    const clNamesFromSheet = clList.rows.map(r=>(r[0]||"").toString().trim())
+      .filter(n=>n && !/^client( name)?$/i.test(n));
+    const nameSet = new Set(clNamesFromSheet);
+    newProjects.forEach(p=>{ if(p.client) nameSet.add(p.client); });
+    newCommercials.forEach(c=>{ if(c.client) nameSet.add(c.client); });
+    newConsumable.forEach(c=>{ if(c.client) nameSet.add(c.client); });
+    const newClientNames = [...nameSet].sort((a,b)=>a.localeCompare(b));
+
+    PROJECTS = newProjects; DELAYED_COUNT = delayed; COMMERCIALS = newCommercials;
+    CONSUMABLE = newConsumable; CLIENT_NAMES = newClientNames; usingLiveData = true;
     setSyncState("ok"); showChangeBadge(changed);
     renderAll();
   }catch(err){
@@ -497,7 +625,7 @@ syncBtn.addEventListener("click", ()=>{ syncBtn.disabled=true; syncData().finall
 setInterval(syncData, REFRESH_MS);
 
 /* ---------------- Page nav ---------------- */
-const PAGES = [{id:"chatbots",label:"Chatbots"},{id:"revenue",label:"Revenue & Margin"}];
+const PAGES = [{id:"chatbots",label:"Chatbots"},{id:"revenue",label:"Revenue & Margin"},{id:"clientsummary",label:"Client Summary"}];
 let activePage = "chatbots";
 const pagenav = document.getElementById("pagenav");
 PAGES.forEach(p=>{
@@ -811,9 +939,155 @@ function renderMonthlyTrend(){
   });
 }
 
+/* ---------------- Render: Client Summary page ---------------- */
+const csFilter = { year:"All", month:"All", client:"" };
+
+function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
+function monthLabel(d){ return d.toLocaleDateString("en-GB",{month:"short",year:"numeric"}); }
+
+// Combines a client's Commercials rows (keyed by Date of Live) with their Consumable rows
+// (keyed by Month) into one chronological month-by-month series.
+function buildClientMonthly(name){
+  const map = {};
+  COMMERCIALS.forEach(c=>{
+    if(c.client!==name || !c.dateOfLive) return;
+    const k=monthKey(c.dateOfLive);
+    if(!map[k]) map[k]={key:k, date:new Date(c.dateOfLive.getFullYear(),c.dateOfLive.getMonth(),1), commRev:0,commCost:0,consRev:0,consCost:0};
+    map[k].commRev+=c.revenue; map[k].commCost+=c.cost;
+  });
+  CONSUMABLE.forEach(c=>{
+    if(c.client!==name || !c.month) return;
+    const k=monthKey(c.month);
+    if(!map[k]) map[k]={key:k, date:new Date(c.month.getFullYear(),c.month.getMonth(),1), commRev:0,commCost:0,consRev:0,consCost:0};
+    map[k].consRev+=c.revenue; map[k].consCost+=c.cost;
+  });
+  return Object.values(map).sort((a,b)=>a.date-b.date).map(m=>({
+    key:m.key, date:m.date, label:monthLabel(m.date),
+    commRev:m.commRev, commCost:m.commCost, commMargin:m.commRev-m.commCost,
+    consRev:m.consRev, consCost:m.consCost, consMargin:m.consRev-m.consCost,
+    totRev:m.commRev+m.consRev, totCost:m.commCost+m.consCost, totMargin:(m.commRev+m.consRev)-(m.commCost+m.consCost)
+  }));
+}
+
+function populateCsFilters(){
+  const yearSel = document.getElementById("csYear");
+  const years = new Set();
+  COMMERCIALS.forEach(c=>{ if(c.dateOfLive) years.add(c.dateOfLive.getFullYear()); });
+  CONSUMABLE.forEach(c=>{ if(c.month) years.add(c.month.getFullYear()); });
+  const sortedYears = [...years].sort((a,b)=>b-a);
+  const prevYear = yearSel.value || csFilter.year;
+  yearSel.innerHTML = `<option value="All">All years</option>` + sortedYears.map(y=>`<option value="${y}">${y}</option>`).join("");
+  yearSel.value = (sortedYears.includes(+prevYear) || prevYear==="All") ? prevYear : "All";
+  csFilter.year = yearSel.value;
+
+  const monthSel = document.getElementById("csMonth");
+  if(!monthSel.dataset.built){
+    const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+    monthSel.innerHTML = `<option value="All">All months</option>` + MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
+    monthSel.dataset.built = "1";
+  }
+
+  const datalist = document.getElementById("csClientDatalist");
+  datalist.innerHTML = CLIENT_NAMES.map(n=>`<option value="${n.replace(/"/g,"&quot;")}"></option>`).join("");
+}
+
+document.getElementById("csYear").addEventListener("change", e=>{ csFilter.year=e.target.value; renderClientSummary(); });
+document.getElementById("csMonth").addEventListener("change", e=>{ csFilter.month=e.target.value; renderClientSummary(); });
+const csClientInput = document.getElementById("csClientInput");
+function tryMatchClient(){
+  const typed = csClientInput.value.trim();
+  const match = CLIENT_NAMES.find(n=>n.toLowerCase()===typed.toLowerCase());
+  csFilter.client = match || "";
+  renderClientSummary();
+}
+csClientInput.addEventListener("input", tryMatchClient);
+csClientInput.addEventListener("change", tryMatchClient);
+document.getElementById("csClearBtn").addEventListener("click", ()=>{
+  csClientInput.value=""; csFilter.client=""; csFilter.year="All"; csFilter.month="All";
+  renderClientSummary();
+  document.getElementById("csYear").value="All"; document.getElementById("csMonth").value="All";
+});
+
+function renderClientSummary(){
+  populateCsFilters();
+  const empty = document.getElementById("csEmpty"), content = document.getElementById("csContent");
+  if(!csFilter.client){ empty.style.display="block"; content.style.display="none"; return; }
+  empty.style.display="none"; content.style.display="block";
+
+  const rowsAll = buildClientMonthly(csFilter.client);
+  const yearRows = csFilter.year==="All" ? rowsAll : rowsAll.filter(r=>r.date.getFullYear()===+csFilter.year);
+  // KPI cards respect both Year and Month filters; the monthly table/trend below only respects
+  // Year, so the growth-over-time picture stays intact even when a single month is selected up top.
+  const scoped = yearRows.filter(r=> csFilter.month==="All" || (r.date.getMonth()+1)===+csFilter.month);
+
+  const sum = (arr,key) => arr.reduce((a,r)=>a+r[key],0);
+  const commRev=sum(scoped,"commRev"), commCost=sum(scoped,"commCost"), commMargin=commRev-commCost;
+  const consRev=sum(scoped,"consRev"), consCost=sum(scoped,"consCost"), consMargin=consRev-consCost;
+  const totRev=commRev+consRev, totCost=commCost+consCost, totMargin=totRev-totCost;
+
+  document.getElementById("csCommRev").textContent = fmtINR(commRev);
+  document.getElementById("csCommCost").textContent = fmtINR(commCost);
+  document.getElementById("csCommMargin").textContent = fmtINR(commMargin);
+  document.getElementById("csConsRev").textContent = fmtINR(consRev);
+  document.getElementById("csConsCost").textContent = fmtINR(consCost);
+  document.getElementById("csConsMargin").textContent = fmtINR(consMargin);
+  document.getElementById("csTotRev").textContent = fmtINR(totRev);
+  document.getElementById("csTotCost").textContent = fmtINR(totCost);
+  document.getElementById("csTotMargin").textContent = fmtINR(totMargin);
+
+  const tbody = document.getElementById("csMonthlyBody"); tbody.innerHTML="";
+  if(yearRows.length===0){
+    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state">No Commercials or Consumable records found for this client${csFilter.year!=="All"?" in "+csFilter.year:""}.</div></td></tr>`;
+  } else {
+    yearRows.forEach((r,i)=>{
+      const prev = yearRows[i-1];
+      const momPct = prev && prev.totRev ? ((r.totRev-prev.totRev)/prev.totRev*100) : null;
+      const momText = momPct===null ? "—" : (momPct>=0?"▲ ":"▼ ")+Math.abs(momPct).toFixed(1)+"%";
+      const momClass = momPct===null ? "trend-flat" : (momPct>=0?"trend-up":"trend-down");
+      const tr=document.createElement("tr");
+      tr.innerHTML = `<td>${r.label}</td>
+        <td class="num">${fmtINR(r.commRev)}</td><td class="num">${fmtINR(r.commCost)}</td><td class="num">${fmtINR(r.commMargin)}</td>
+        <td class="num">${fmtINR(r.consRev)}</td><td class="num">${fmtINR(r.consCost)}</td><td class="num">${fmtINR(r.consMargin)}</td>
+        <td class="num">${fmtINR(r.totRev)}</td><td class="num">${fmtINR(r.totCost)}</td><td class="num">${fmtINR(r.totMargin)}</td>
+        <td class="num ${momClass}">${momText}</td>`;
+      tbody.appendChild(tr);
+    });
+  }
+
+  // Growth trend — chronological bar chart of Total Revenue for the selected Year (or all history),
+  // colored green when a month is up on the previous month and red when it's down.
+  const chart = document.getElementById("csTrendChart"); chart.innerHTML = "";
+  const summaryEl = document.getElementById("csTrendSummary");
+  if(yearRows.length < 2){
+    summaryEl.textContent = "Not enough months of data yet to show a trend.";
+  } else {
+    let ups=0, downs=0;
+    const maxRev = Math.max(1, ...yearRows.map(r=>r.totRev));
+    yearRows.forEach((r,i)=>{
+      const prev = yearRows[i-1];
+      const pct = prev && prev.totRev ? ((r.totRev-prev.totRev)/prev.totRev*100) : null;
+      if(pct!==null){ if(pct>=0) ups++; else downs++; }
+      const color = pct===null ? "var(--accent)" : (pct>=0 ? "var(--live)" : "var(--delay)");
+      const row = document.createElement("div"); row.className="trend-row";
+      row.innerHTML = `<div class="tm">${r.label}</div>
+        <div class="bar-cell" style="flex:1;"><div class="bar-track"><div class="bar-fill" style="width:${Math.max(2,r.totRev/maxRev*100)}%; background:${color}"></div></div></div>
+        <div class="td ${pct===null?"trend-flat":(pct>=0?"trend-up":"trend-down")}">${pct===null?fmtINR(r.totRev):(pct>=0?"▲ ":"▼ ")+Math.abs(pct).toFixed(1)+"%"}</div>`;
+      chart.appendChild(row);
+    });
+    const first = yearRows[0], last = yearRows[yearRows.length-1];
+    const overallPct = first.totRev ? ((last.totRev-first.totRev)/first.totRev*100) : null;
+    const trendWord = overallPct===null ? "flat" : (overallPct>=0 ? "positive" : "negative");
+    const trendClass = overallPct===null ? "trend-flat" : (overallPct>=0 ? "trend-up" : "trend-down");
+    summaryEl.innerHTML = `<b>${csFilter.client}</b> shows an overall <b class="${trendClass}">${trendWord}</b> trend
+      from ${first.label} to ${last.label}${overallPct!==null?` (${overallPct>=0?"+":""}${overallPct.toFixed(1)}% total revenue)`:""} ·
+      grew month-over-month in ${ups} of ${ups+downs} tracked months.`;
+  }
+}
+
 function renderAll(){
   renderChatbots();
   renderRevenue();
+  renderClientSummary();
 }
 
 /* ---------------- Deep-link: ?month=YYYY-MM opens straight to that month's projects ---------------- */

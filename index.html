@@ -173,9 +173,11 @@
   /* Client Summary page */
   .cs-group-title{font-size:11px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.06em; font-weight:600; margin-bottom:14px;}
   .cs-stat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:14px;}
-  .cs-stat{background:var(--surface-alt); border-radius:10px; padding:14px 16px;}
+  .cs-stat{background:var(--surface-alt); border-radius:10px; padding:14px 16px; text-align:center;}
   .cs-stat .l{font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; font-weight:600;}
   .cs-stat .v{font-family:'Lexend', sans-serif; font-size:19px; font-weight:700; margin-top:6px;}
+  .cs-cr{display:block; font-family:'Lexend', sans-serif; font-size:11px; font-weight:500; color:var(--text-faint); margin-top:2px;}
+  .cs-group-title{text-align:center;}
   .cs-groups{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:16px;}
   .cs-empty{padding:70px 20px; text-align:center; color:var(--text-faint); font-family:'Lexend', sans-serif; font-size:13.5px;}
   .cs-groups-pair{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:16px;}
@@ -197,6 +199,11 @@
   .trend-row .td{width:90px; text-align:right; font-family:'Lexend', sans-serif; font-size:12px; font-weight:600; flex-shrink:0;}
   .trend-up{color:var(--live);} .trend-down{color:var(--delay);} .trend-flat{color:var(--text-faint);}
   @media(max-width:960px){ .cs-groups{grid-template-columns:1fr;} }
+  /* Compact figures (Cr/L) keep every column of the Monthly Breakdown table on screen with no
+     horizontal scrollbar needed. */
+  #csMonthlyTable{font-size:12px; width:100%; table-layout:fixed;}
+  #csMonthlyTable th, #csMonthlyTable td{padding-left:6px; padding-right:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+  #csMonthlyTable th:first-child, #csMonthlyTable td:first-child{width:26%;}
 
   footer{max-width:1360px; margin:30px auto 0; padding:0 40px; color:var(--text-faint); font-size:12px; font-family:'Lexend', sans-serif;}
 
@@ -481,6 +488,22 @@ const PALETTE = ["#0FB5A6","#FB923C","#C084FC","#F472B6","#38BDF8","#A3E635"];
 const VENDOR_COLORS = {"Kevit":"#0FB5A6","Limechat":"#FB923C","Talk.ai":"#C084FC"};
 function vendorColor(v){ if(!VENDOR_COLORS[v]) VENDOR_COLORS[v]=PALETTE[Object.keys(VENDOR_COLORS).length % PALETTE.length]; return VENDOR_COLORS[v]; }
 const fmtINR = n => "₹" + Number(n||0).toLocaleString("en-IN");
+// Adds a "(₹X.XX Cr)" suffix to the full rupee figure — used on the Client Summary KPI cards.
+function fmtINRCr(n){
+  const v = Number(n||0);
+  if(v===0) return fmtINR(v);
+  return `${fmtINR(v)}<span class="cs-cr">(₹${(v/1e7).toFixed(2)} Cr)</span>`;
+}
+// Compact Cr/Lakh figure with no thousands grouping — used in the narrow Monthly Breakdown table
+// so columns fit without horizontal scrolling.
+function fmtCompact(n){
+  const v = Number(n||0);
+  const sign = v<0 ? "-" : "";
+  const abs = Math.abs(v);
+  if(abs>=1e7) return sign+"₹"+(abs/1e7).toFixed(2)+"Cr";
+  if(abs>=1e5) return sign+"₹"+(abs/1e5).toFixed(2)+"L";
+  return fmtINR(v);
+}
 
 function gvizJsonpUrl(sheetName, cbName){
   return `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;responseHandler:${cbName}&headers=0&sheet=${encodeURIComponent(sheetName)}&_=${Date.now()}`;
@@ -1115,7 +1138,7 @@ function renderCsBreakdownTable(yearRows){
     const momClass = momPct===null ? "trend-flat" : (momPct>=0?"trend-up":"trend-down");
     const tr=document.createElement("tr");
     tr.innerHTML = `<td>${r.label}</td>
-      <td class="num">${fmtINR(r[revKey])}</td><td class="num">${fmtINR(r[costKey])}</td><td class="num">${fmtINR(r[marginKey])}</td>
+      <td class="num">${fmtCompact(r[revKey])}</td><td class="num">${fmtCompact(r[costKey])}</td><td class="num">${fmtCompact(r[marginKey])}</td>
       <td class="num ${momClass}">${momText}</td>`;
     tbody.appendChild(tr);
   });
@@ -1137,15 +1160,15 @@ function renderClientSummary(){
   const consRev=sum(scoped,"consRev"), consCost=sum(scoped,"consCost"), consMargin=consRev-consCost;
   const totRev=commRev+consRev, totCost=commCost+consCost, totMargin=totRev-totCost;
 
-  document.getElementById("csCommRev").textContent = fmtINR(commRev);
-  document.getElementById("csCommCost").textContent = fmtINR(commCost);
-  document.getElementById("csCommMargin").textContent = fmtINR(commMargin);
-  document.getElementById("csConsRev").textContent = fmtINR(consRev);
-  document.getElementById("csConsCost").textContent = fmtINR(consCost);
-  document.getElementById("csConsMargin").textContent = fmtINR(consMargin);
-  document.getElementById("csTotRev").textContent = fmtINR(totRev);
-  document.getElementById("csTotCost").textContent = fmtINR(totCost);
-  document.getElementById("csTotMargin").textContent = fmtINR(totMargin);
+  document.getElementById("csCommRev").innerHTML = fmtINRCr(commRev);
+  document.getElementById("csCommCost").innerHTML = fmtINRCr(commCost);
+  document.getElementById("csCommMargin").innerHTML = fmtINRCr(commMargin);
+  document.getElementById("csConsRev").innerHTML = fmtINRCr(consRev);
+  document.getElementById("csConsCost").innerHTML = fmtINRCr(consCost);
+  document.getElementById("csConsMargin").innerHTML = fmtINRCr(consMargin);
+  document.getElementById("csTotRev").innerHTML = fmtINRCr(totRev);
+  document.getElementById("csTotCost").innerHTML = fmtINRCr(totCost);
+  document.getElementById("csTotMargin").innerHTML = fmtINRCr(totMargin);
 
   renderCsBreakdownTable(yearRows);
 

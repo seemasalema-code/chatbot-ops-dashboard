@@ -199,11 +199,12 @@
   .trend-row .td{width:90px; text-align:right; font-family:'Lexend', sans-serif; font-size:12px; font-weight:600; flex-shrink:0;}
   .trend-up{color:var(--live);} .trend-down{color:var(--delay);} .trend-flat{color:var(--text-faint);}
   @media(max-width:960px){ .cs-groups{grid-template-columns:1fr;} }
-  /* Compact figures (Cr/L) keep every column of the Monthly Breakdown table on screen with no
-     horizontal scrollbar needed. */
-  #csMonthlyTable{font-size:12px; width:100%; table-layout:fixed;}
-  #csMonthlyTable th, #csMonthlyTable td{padding-left:6px; padding-right:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
-  #csMonthlyTable th:first-child, #csMonthlyTable td:first-child{width:26%;}
+  /* Compact figures (Cr/L) + a slightly wider side column keep every column of the Monthly
+     Breakdown table on screen with no horizontal scrollbar needed. */
+  .cs-rev-layout{grid-template-columns:1fr 460px;}
+  @media(max-width:1100px){ .cs-rev-layout{grid-template-columns:1fr;} }
+  #csMonthlyTable{font-size:12px; width:100%;}
+  #csMonthlyTable th, #csMonthlyTable td{padding-left:5px; padding-right:5px; white-space:nowrap;}
 
   footer{max-width:1360px; margin:30px auto 0; padding:0 40px; color:var(--text-faint); font-size:12px; font-family:'Lexend', sans-serif;}
 
@@ -386,7 +387,7 @@
         </div>
       </div>
 
-      <div class="rev-layout" style="margin-top:16px;">
+      <div class="rev-layout cs-rev-layout" style="margin-top:16px;">
         <div class="rev-main">
           <div class="panel">
             <h2>Month-over-Month Trend <small>Total Revenue · green = growth, red = decline</small></h2>
@@ -409,7 +410,7 @@
               <table class="rev" id="csMonthlyTable">
                 <thead><tr>
                   <th>Month</th>
-                  <th style="text-align:right">Revenue</th>
+                  <th style="text-align:right">Rev</th>
                   <th style="text-align:right">Cost</th>
                   <th style="text-align:right">Margin</th>
                   <th style="text-align:right">MoM</th>

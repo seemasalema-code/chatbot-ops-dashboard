@@ -82,6 +82,12 @@
   .timebar input[type=date]{font-family:'Lexend', sans-serif; font-size:12.5px; border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); background:var(--surface);}
   .timebar input[type=text], .timebar select{font-family:'Lexend', sans-serif; font-size:12.5px; border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); background:var(--surface);}
   .timebar input[type=text]{min-width:260px;}
+  .ms-btn{font-family:'Lexend', sans-serif; font-size:12.5px; font-weight:600; border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text); background:var(--surface); cursor:pointer; min-width:140px; text-align:left;}
+  .ms-btn:hover{border-color:var(--accent);}
+  .ms-panel{position:absolute; top:calc(100% + 6px); left:0; z-index:20; background:var(--surface); border:1px solid var(--border); border-radius:10px; box-shadow:var(--shadow-sm); padding:10px; min-width:200px; max-height:280px; overflow-y:auto;}
+  .ms-panel label{display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:500; text-transform:none; letter-spacing:0; color:var(--text); padding:5px 4px; cursor:pointer; border-radius:6px;}
+  .ms-panel label:hover{background:var(--surface-alt);}
+  .ms-panel .ms-all{border-bottom:1px solid var(--border); margin-bottom:6px; padding-bottom:8px; font-weight:700;}
   .period-label{margin-left:auto; font-family:'Lexend', sans-serif; font-size:12px; color:var(--text-faint);}
   .period-stats{display:grid; grid-template-columns:repeat(6,1fr); gap:10px; margin-top:12px;}
   .pstat{background:var(--surface-alt); border-radius:10px; padding:10px 12px;}
@@ -317,18 +323,20 @@
   <section class="page" id="page-clientsummary">
     <div class="timebar">
       <div class="tf-group"><label>Year</label><select id="csYear"></select></div>
-      <div class="tf-group"><label>Month</label><select id="csMonth"></select></div>
+      <div class="tf-group" style="position:relative;">
+        <label>Month</label>
+        <button type="button" id="csMonthBtn" class="ms-btn">All months</button>
+        <div id="csMonthPanel" class="ms-panel" style="display:none;"></div>
+      </div>
       <div class="tf-group" style="flex:1; min-width:280px;">
         <label>Client</label>
-        <input type="text" id="csClientInput" placeholder="Type a client name…" autocomplete="off" list="csClientDatalist">
+        <input type="text" id="csClientInput" placeholder="All clients — type to filter one out…" autocomplete="off" list="csClientDatalist">
         <datalist id="csClientDatalist"></datalist>
       </div>
       <button id="csClearBtn" style="border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-family:'Lexend',sans-serif; font-weight:600; font-size:12px; padding:8px 14px; border-radius:20px; cursor:pointer;">Clear</button>
     </div>
 
-    <div id="csEmpty" class="panel cs-empty" style="margin-top:16px;">Type a client name above and pick it from the dropdown list to see their revenue, cost and margin summary.</div>
-
-    <div id="csContent" style="display:none;">
+    <div id="csContent" style="margin-top:16px;">
       <div class="cs-groups">
         <div class="panel">
           <div class="cs-group-title">Commercials</div>
@@ -356,26 +364,37 @@
         </div>
       </div>
 
-      <div class="panel" style="margin-top:16px;">
-        <h2>Month-over-Month Trend <small>Total Revenue · green = growth, red = decline</small></h2>
-        <div id="csTrendSummary" style="font-size:13px; color:var(--text-dim); margin-bottom:14px;"></div>
-        <div id="csTrendChart"></div>
-      </div>
-
-      <div class="panel" style="margin-top:16px;">
-        <h2>Month-wise Breakdown</h2>
-        <div style="overflow-x:auto;">
-          <table class="rev" id="csMonthlyTable">
-            <thead><tr>
-              <th>Month</th>
-              <th style="text-align:right">Comm. Rev</th><th style="text-align:right">Comm. Cost</th><th style="text-align:right">Comm. Margin</th>
-              <th style="text-align:right">Cons. Rev</th><th style="text-align:right">Cons. Cost</th><th style="text-align:right">Cons. Margin</th>
-              <th style="text-align:right">Total Rev</th><th style="text-align:right">Total Cost</th><th style="text-align:right">Total Margin</th>
-              <th style="text-align:right">MoM</th>
-            </tr></thead>
-            <tbody id="csMonthlyBody"></tbody>
-          </table>
+      <div class="rev-layout" style="margin-top:16px;">
+        <div class="rev-main">
+          <div class="panel">
+            <h2>Month-over-Month Trend <small>Total Revenue · green = growth, red = decline</small></h2>
+            <div id="csTrendSummary" style="font-size:13px; color:var(--text-dim); margin-bottom:14px;"></div>
+            <div id="csTrendChart"></div>
+          </div>
         </div>
+
+        <aside class="rev-side">
+          <div class="panel">
+            <h2>Monthly Breakdown</h2>
+            <div class="tabbar" id="csBreakdownTabs">
+              <div class="tab active" data-view="total">Total</div>
+              <div class="tab" data-view="comm">Commercials</div>
+              <div class="tab" data-view="cons">Consumable</div>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="rev" id="csMonthlyTable">
+                <thead><tr>
+                  <th>Month</th>
+                  <th style="text-align:right">Revenue</th>
+                  <th style="text-align:right">Cost</th>
+                  <th style="text-align:right">Margin</th>
+                  <th style="text-align:right">MoM</th>
+                </tr></thead>
+                <tbody id="csMonthlyBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </aside>
       </div>
     </div>
   </section>
@@ -940,23 +959,25 @@ function renderMonthlyTrend(){
 }
 
 /* ---------------- Render: Client Summary page ---------------- */
-const csFilter = { year:"All", month:"All", client:"" };
+const csFilter = { year:"All", months:new Set(), client:"All" };
+let csBreakdownView = "total";
 
 function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
 function monthLabel(d){ return d.toLocaleDateString("en-GB",{month:"short",year:"numeric"}); }
 
 // Combines a client's Commercials rows (keyed by Date of Live) with their Consumable rows
-// (keyed by Month) into one chronological month-by-month series.
+// (keyed by Month) into one chronological month-by-month series. name==="All" aggregates
+// across every client instead of filtering to one.
 function buildClientMonthly(name){
   const map = {};
   COMMERCIALS.forEach(c=>{
-    if(c.client!==name || !c.dateOfLive) return;
+    if((name!=="All" && c.client!==name) || !c.dateOfLive) return;
     const k=monthKey(c.dateOfLive);
     if(!map[k]) map[k]={key:k, date:new Date(c.dateOfLive.getFullYear(),c.dateOfLive.getMonth(),1), commRev:0,commCost:0,consRev:0,consCost:0};
     map[k].commRev+=c.revenue; map[k].commCost+=c.cost;
   });
   CONSUMABLE.forEach(c=>{
-    if(c.client!==name || !c.month) return;
+    if((name!=="All" && c.client!==name) || !c.month) return;
     const k=monthKey(c.month);
     if(!map[k]) map[k]={key:k, date:new Date(c.month.getFullYear(),c.month.getMonth(),1), commRev:0,commCost:0,consRev:0,consCost:0};
     map[k].consRev+=c.revenue; map[k].consCost+=c.cost;
@@ -967,6 +988,14 @@ function buildClientMonthly(name){
     consRev:m.consRev, consCost:m.consCost, consMargin:m.consRev-m.consCost,
     totRev:m.commRev+m.consRev, totCost:m.commCost+m.consCost, totMargin:(m.commRev+m.consRev)-(m.commCost+m.consCost)
   }));
+}
+
+function updateCsMonthBtn(){
+  const btn = document.getElementById("csMonthBtn");
+  const SHORT=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  if(csFilter.months.size===0){ btn.textContent = "All months"; return; }
+  const sorted = [...csFilter.months].sort((a,b)=>a-b);
+  btn.textContent = sorted.length<=2 ? sorted.map(m=>SHORT[m-1]).join(", ") : `${sorted.length} months`;
 }
 
 function populateCsFilters(){
@@ -980,11 +1009,29 @@ function populateCsFilters(){
   yearSel.value = (sortedYears.includes(+prevYear) || prevYear==="All") ? prevYear : "All";
   csFilter.year = yearSel.value;
 
-  const monthSel = document.getElementById("csMonth");
-  if(!monthSel.dataset.built){
+  const panel = document.getElementById("csMonthPanel");
+  if(!panel.dataset.built){
     const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
-    monthSel.innerHTML = `<option value="All">All months</option>` + MONTHS.map((m,i)=>`<option value="${i+1}">${m}</option>`).join("");
-    monthSel.dataset.built = "1";
+    panel.innerHTML = `<label class="ms-all"><input type="checkbox" id="csMonthAll" checked> All months</label>` +
+      MONTHS.map((m,i)=>`<label><input type="checkbox" class="cs-month-cb" value="${i+1}"> ${m}</label>`).join("");
+    panel.dataset.built = "1";
+    panel.querySelector("#csMonthAll").addEventListener("change", e=>{
+      if(e.target.checked){
+        csFilter.months.clear();
+        panel.querySelectorAll(".cs-month-cb").forEach(cb=>cb.checked=false);
+        updateCsMonthBtn(); renderClientSummary();
+      } else if(csFilter.months.size===0){
+        e.target.checked = true; // keep at least "All" checked when nothing else is picked
+      }
+    });
+    panel.querySelectorAll(".cs-month-cb").forEach(cb=>{
+      cb.addEventListener("change", ()=>{
+        if(cb.checked) csFilter.months.add(+cb.value); else csFilter.months.delete(+cb.value);
+        panel.querySelector("#csMonthAll").checked = csFilter.months.size===0;
+        updateCsMonthBtn();
+        renderClientSummary();
+      });
+    });
   }
 
   const datalist = document.getElementById("csClientDatalist");
@@ -992,33 +1039,78 @@ function populateCsFilters(){
 }
 
 document.getElementById("csYear").addEventListener("change", e=>{ csFilter.year=e.target.value; renderClientSummary(); });
-document.getElementById("csMonth").addEventListener("change", e=>{ csFilter.month=e.target.value; renderClientSummary(); });
+document.getElementById("csMonthBtn").addEventListener("click", e=>{
+  e.stopPropagation();
+  const panel = document.getElementById("csMonthPanel");
+  panel.style.display = panel.style.display==="none" ? "block" : "none";
+});
+document.addEventListener("click", e=>{
+  const panel = document.getElementById("csMonthPanel");
+  if(panel && panel.style.display!=="none" && !panel.contains(e.target) && e.target.id!=="csMonthBtn"){
+    panel.style.display="none";
+  }
+});
+
 const csClientInput = document.getElementById("csClientInput");
 function tryMatchClient(){
   const typed = csClientInput.value.trim();
+  if(!typed){ csFilter.client = "All"; renderClientSummary(); return; }
   const match = CLIENT_NAMES.find(n=>n.toLowerCase()===typed.toLowerCase());
-  csFilter.client = match || "";
-  renderClientSummary();
+  if(match){ csFilter.client = match; renderClientSummary(); }
 }
 csClientInput.addEventListener("input", tryMatchClient);
 csClientInput.addEventListener("change", tryMatchClient);
 document.getElementById("csClearBtn").addEventListener("click", ()=>{
-  csClientInput.value=""; csFilter.client=""; csFilter.year="All"; csFilter.month="All";
+  csClientInput.value=""; csFilter.client="All"; csFilter.year="All"; csFilter.months.clear();
+  const panel = document.getElementById("csMonthPanel");
+  if(panel){
+    panel.querySelectorAll(".cs-month-cb").forEach(cb=>cb.checked=false);
+    const all = panel.querySelector("#csMonthAll"); if(all) all.checked=true;
+  }
+  updateCsMonthBtn();
   renderClientSummary();
-  document.getElementById("csYear").value="All"; document.getElementById("csMonth").value="All";
+  document.getElementById("csYear").value="All";
 });
+
+document.getElementById("csBreakdownTabs").addEventListener("click", e=>{
+  const tab = e.target.closest(".tab"); if(!tab) return;
+  document.querySelectorAll("#csBreakdownTabs .tab").forEach(t=>t.classList.remove("active"));
+  tab.classList.add("active");
+  csBreakdownView = tab.dataset.view;
+  renderCsBreakdownTable(window.__csYearRows || []);
+});
+
+function renderCsBreakdownTable(yearRows){
+  const tbody = document.getElementById("csMonthlyBody"); tbody.innerHTML="";
+  const keyMap = { total:["totRev","totCost","totMargin"], comm:["commRev","commCost","commMargin"], cons:["consRev","consCost","consMargin"] };
+  const [revKey,costKey,marginKey] = keyMap[csBreakdownView];
+  if(yearRows.length===0){
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">No records found for the selected filters.</div></td></tr>`;
+    return;
+  }
+  yearRows.forEach((r,i)=>{
+    const prev = yearRows[i-1];
+    const momPct = prev && prev[revKey] ? ((r[revKey]-prev[revKey])/prev[revKey]*100) : null;
+    const momText = momPct===null ? "—" : (momPct>=0?"▲ ":"▼ ")+Math.abs(momPct).toFixed(1)+"%";
+    const momClass = momPct===null ? "trend-flat" : (momPct>=0?"trend-up":"trend-down");
+    const tr=document.createElement("tr");
+    tr.innerHTML = `<td>${r.label}</td>
+      <td class="num">${fmtINR(r[revKey])}</td><td class="num">${fmtINR(r[costKey])}</td><td class="num">${fmtINR(r[marginKey])}</td>
+      <td class="num ${momClass}">${momText}</td>`;
+    tbody.appendChild(tr);
+  });
+}
 
 function renderClientSummary(){
   populateCsFilters();
-  const empty = document.getElementById("csEmpty"), content = document.getElementById("csContent");
-  if(!csFilter.client){ empty.style.display="block"; content.style.display="none"; return; }
-  empty.style.display="none"; content.style.display="block";
 
   const rowsAll = buildClientMonthly(csFilter.client);
   const yearRows = csFilter.year==="All" ? rowsAll : rowsAll.filter(r=>r.date.getFullYear()===+csFilter.year);
-  // KPI cards respect both Year and Month filters; the monthly table/trend below only respects
-  // Year, so the growth-over-time picture stays intact even when a single month is selected up top.
-  const scoped = yearRows.filter(r=> csFilter.month==="All" || (r.date.getMonth()+1)===+csFilter.month);
+  // KPI cards respect Year, selected Month(s) and Client; the monthly table/trend below only
+  // respects Year (+ Client), so the growth-over-time picture stays intact even when specific
+  // months are selected up top.
+  const scoped = csFilter.months.size===0 ? yearRows : yearRows.filter(r=> csFilter.months.has(r.date.getMonth()+1));
+  window.__csYearRows = yearRows;
 
   const sum = (arr,key) => arr.reduce((a,r)=>a+r[key],0);
   const commRev=sum(scoped,"commRev"), commCost=sum(scoped,"commCost"), commMargin=commRev-commCost;
@@ -1035,24 +1127,7 @@ function renderClientSummary(){
   document.getElementById("csTotCost").textContent = fmtINR(totCost);
   document.getElementById("csTotMargin").textContent = fmtINR(totMargin);
 
-  const tbody = document.getElementById("csMonthlyBody"); tbody.innerHTML="";
-  if(yearRows.length===0){
-    tbody.innerHTML = `<tr><td colspan="11"><div class="empty-state">No Commercials or Consumable records found for this client${csFilter.year!=="All"?" in "+csFilter.year:""}.</div></td></tr>`;
-  } else {
-    yearRows.forEach((r,i)=>{
-      const prev = yearRows[i-1];
-      const momPct = prev && prev.totRev ? ((r.totRev-prev.totRev)/prev.totRev*100) : null;
-      const momText = momPct===null ? "—" : (momPct>=0?"▲ ":"▼ ")+Math.abs(momPct).toFixed(1)+"%";
-      const momClass = momPct===null ? "trend-flat" : (momPct>=0?"trend-up":"trend-down");
-      const tr=document.createElement("tr");
-      tr.innerHTML = `<td>${r.label}</td>
-        <td class="num">${fmtINR(r.commRev)}</td><td class="num">${fmtINR(r.commCost)}</td><td class="num">${fmtINR(r.commMargin)}</td>
-        <td class="num">${fmtINR(r.consRev)}</td><td class="num">${fmtINR(r.consCost)}</td><td class="num">${fmtINR(r.consMargin)}</td>
-        <td class="num">${fmtINR(r.totRev)}</td><td class="num">${fmtINR(r.totCost)}</td><td class="num">${fmtINR(r.totMargin)}</td>
-        <td class="num ${momClass}">${momText}</td>`;
-      tbody.appendChild(tr);
-    });
-  }
+  renderCsBreakdownTable(yearRows);
 
   // Growth trend — chronological bar chart of Total Revenue for the selected Year (or all history),
   // colored green when a month is up on the previous month and red when it's down.
@@ -1078,7 +1153,8 @@ function renderClientSummary(){
     const overallPct = first.totRev ? ((last.totRev-first.totRev)/first.totRev*100) : null;
     const trendWord = overallPct===null ? "flat" : (overallPct>=0 ? "positive" : "negative");
     const trendClass = overallPct===null ? "trend-flat" : (overallPct>=0 ? "trend-up" : "trend-down");
-    summaryEl.innerHTML = `<b>${csFilter.client}</b> shows an overall <b class="${trendClass}">${trendWord}</b> trend
+    const clientLabel = csFilter.client==="All" ? "All clients" : csFilter.client;
+    summaryEl.innerHTML = `<b>${clientLabel}</b> shows an overall <b class="${trendClass}">${trendWord}</b> trend
       from ${first.label} to ${last.label}${overallPct!==null?` (${overallPct>=0?"+":""}${overallPct.toFixed(1)}% total revenue)`:""} ·
       grew month-over-month in ${ups} of ${ups+downs} tracked months.`;
   }

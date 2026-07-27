@@ -178,6 +178,20 @@
   .cs-stat .v{font-family:'Lexend', sans-serif; font-size:19px; font-weight:700; margin-top:6px;}
   .cs-groups{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:16px;}
   .cs-empty{padding:70px 20px; text-align:center; color:var(--text-faint); font-family:'Lexend', sans-serif; font-size:13.5px;}
+  .cs-groups-pair{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:16px;}
+  @media(max-width:960px){ .cs-groups-pair{grid-template-columns:1fr;} }
+  .cs-card{border:1px solid transparent;}
+  .cs-card-total{background:#EEF2FF; border-color:#E0E7FF;}
+  .cs-card-total .cs-stat{background:rgba(255,255,255,.6);}
+  .cs-card-comm{background:#EFF6FF; border-color:#DBEAFE;}
+  .cs-card-comm .cs-stat{background:rgba(255,255,255,.6);}
+  .cs-card-cons{background:#FFF7ED; border-color:#FFE8CC;}
+  .cs-card-cons .cs-stat{background:rgba(255,255,255,.6);}
+  .cs-trend-row{display:flex; gap:20px; align-items:flex-start;}
+  .cs-trend-chart{flex:1; min-width:0;}
+  @media(max-width:900px){ .cs-trend-row{flex-direction:column;} }
+  .cs-trend-tab{font-size:12px; line-height:1.5; color:var(--text-dim); background:var(--surface-alt); border-radius:14px; padding:12px 16px; width:230px; flex-shrink:0; text-align:left;}
+  @media(max-width:900px){ .cs-trend-tab{width:auto;} }
   .trend-row{display:flex; align-items:center; gap:12px; padding:7px 0;}
   .trend-row .tm{width:78px; font-size:12px; color:var(--text-dim); flex-shrink:0;}
   .trend-row .td{width:90px; text-align:right; font-family:'Lexend', sans-serif; font-size:12px; font-weight:600; flex-shrink:0;}
@@ -337,8 +351,17 @@
     </div>
 
     <div id="csContent" style="margin-top:16px;">
-      <div class="cs-groups">
-        <div class="panel">
+      <div class="panel cs-card cs-card-total">
+        <div class="cs-group-title">Total (Commercials + Consumable)</div>
+        <div class="cs-stat-grid">
+          <div class="cs-stat"><div class="l">Revenue</div><div class="v" id="csTotRev">—</div></div>
+          <div class="cs-stat"><div class="l">Cost</div><div class="v" id="csTotCost">—</div></div>
+          <div class="cs-stat"><div class="l">Margin</div><div class="v" id="csTotMargin">—</div></div>
+        </div>
+      </div>
+
+      <div class="cs-groups-pair">
+        <div class="panel cs-card cs-card-comm">
           <div class="cs-group-title">Commercials</div>
           <div class="cs-stat-grid">
             <div class="cs-stat"><div class="l">Revenue</div><div class="v" id="csCommRev">—</div></div>
@@ -346,20 +369,12 @@
             <div class="cs-stat"><div class="l">Margin</div><div class="v" id="csCommMargin">—</div></div>
           </div>
         </div>
-        <div class="panel">
+        <div class="panel cs-card cs-card-cons">
           <div class="cs-group-title">Consumable</div>
           <div class="cs-stat-grid">
             <div class="cs-stat"><div class="l">Revenue</div><div class="v" id="csConsRev">—</div></div>
             <div class="cs-stat"><div class="l">Cost</div><div class="v" id="csConsCost">—</div></div>
             <div class="cs-stat"><div class="l">Margin</div><div class="v" id="csConsMargin">—</div></div>
-          </div>
-        </div>
-        <div class="panel">
-          <div class="cs-group-title">Total (Commercials + Consumable)</div>
-          <div class="cs-stat-grid">
-            <div class="cs-stat"><div class="l">Revenue</div><div class="v" id="csTotRev">—</div></div>
-            <div class="cs-stat"><div class="l">Cost</div><div class="v" id="csTotCost">—</div></div>
-            <div class="cs-stat"><div class="l">Margin</div><div class="v" id="csTotMargin">—</div></div>
           </div>
         </div>
       </div>
@@ -368,8 +383,10 @@
         <div class="rev-main">
           <div class="panel">
             <h2>Month-over-Month Trend <small>Total Revenue · green = growth, red = decline</small></h2>
-            <div id="csTrendSummary" style="font-size:13px; color:var(--text-dim); margin-bottom:14px;"></div>
-            <div id="csTrendChart"></div>
+            <div class="cs-trend-row">
+              <div id="csTrendChart" class="cs-trend-chart"></div>
+              <div id="csTrendSummary" class="cs-trend-tab"></div>
+            </div>
           </div>
         </div>
 
@@ -964,6 +981,8 @@ let csBreakdownView = "total";
 
 function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
 function monthLabel(d){ return d.toLocaleDateString("en-GB",{month:"short",year:"numeric"}); }
+// Financial year runs April -> March, so Jan/Feb/Mar belong to the FY that started the previous April.
+function fiscalYear(d){ return d.getMonth()>=3 ? d.getFullYear() : d.getFullYear()-1; }
 
 // Combines a client's Commercials rows (keyed by Date of Live) with their Consumable rows
 // (keyed by Month) into one chronological month-by-month series. name==="All" aggregates
@@ -1001,19 +1020,20 @@ function updateCsMonthBtn(){
 function populateCsFilters(){
   const yearSel = document.getElementById("csYear");
   const years = new Set();
-  COMMERCIALS.forEach(c=>{ if(c.dateOfLive) years.add(c.dateOfLive.getFullYear()); });
-  CONSUMABLE.forEach(c=>{ if(c.month) years.add(c.month.getFullYear()); });
+  COMMERCIALS.forEach(c=>{ if(c.dateOfLive) years.add(fiscalYear(c.dateOfLive)); });
+  CONSUMABLE.forEach(c=>{ if(c.month) years.add(fiscalYear(c.month)); });
   const sortedYears = [...years].sort((a,b)=>b-a);
   const prevYear = yearSel.value || csFilter.year;
-  yearSel.innerHTML = `<option value="All">All years</option>` + sortedYears.map(y=>`<option value="${y}">${y}</option>`).join("");
+  yearSel.innerHTML = `<option value="All">All years</option>` + sortedYears.map(y=>`<option value="${y}">FY ${y}-${String(y+1).slice(-2)}</option>`).join("");
   yearSel.value = (sortedYears.includes(+prevYear) || prevYear==="All") ? prevYear : "All";
   csFilter.year = yearSel.value;
 
   const panel = document.getElementById("csMonthPanel");
   if(!panel.dataset.built){
-    const MONTHS=["January","February","March","April","May","June","July","August","September","October","November","December"];
+    // Listed in financial-year order (Apr -> Mar) to match the FY filter above.
+    const FY_MONTHS=[["April",4],["May",5],["June",6],["July",7],["August",8],["September",9],["October",10],["November",11],["December",12],["January",1],["February",2],["March",3]];
     panel.innerHTML = `<label class="ms-all"><input type="checkbox" id="csMonthAll" checked> All months</label>` +
-      MONTHS.map((m,i)=>`<label><input type="checkbox" class="cs-month-cb" value="${i+1}"> ${m}</label>`).join("");
+      FY_MONTHS.map(([m,num])=>`<label><input type="checkbox" class="cs-month-cb" value="${num}"> ${m}</label>`).join("");
     panel.dataset.built = "1";
     panel.querySelector("#csMonthAll").addEventListener("change", e=>{
       if(e.target.checked){
@@ -1105,10 +1125,10 @@ function renderClientSummary(){
   populateCsFilters();
 
   const rowsAll = buildClientMonthly(csFilter.client);
-  const yearRows = csFilter.year==="All" ? rowsAll : rowsAll.filter(r=>r.date.getFullYear()===+csFilter.year);
-  // KPI cards respect Year, selected Month(s) and Client; the monthly table/trend below only
-  // respects Year (+ Client), so the growth-over-time picture stays intact even when specific
-  // months are selected up top.
+  const yearRows = csFilter.year==="All" ? rowsAll : rowsAll.filter(r=>fiscalYear(r.date)===+csFilter.year);
+  // KPI cards respect financial Year (Apr-Mar), selected Month(s) and Client; the monthly
+  // table/trend below only respects Year (+ Client), so the growth-over-time picture stays
+  // intact even when specific months are selected up top.
   const scoped = csFilter.months.size===0 ? yearRows : yearRows.filter(r=> csFilter.months.has(r.date.getMonth()+1));
   window.__csYearRows = yearRows;
 

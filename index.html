@@ -452,10 +452,15 @@
         <button type="button" id="csMonthBtn" class="ms-btn">All months</button>
         <div id="csMonthPanel" class="ms-panel" style="display:none;"></div>
       </div>
-      <div class="tf-group" style="flex:1; min-width:280px;">
+      <div class="tf-group" style="flex:1; min-width:280px; position:relative;">
         <label>Client</label>
-        <input type="text" id="csClientInput" placeholder="All clients — type to filter one out…" autocomplete="off" list="csClientDatalist">
-        <datalist id="csClientDatalist"></datalist>
+        <button type="button" id="csClientBtn" class="ms-btn" style="min-width:240px;">All clients</button>
+        <div id="csClientPanel" class="ms-panel" style="display:none; min-width:300px;">
+          <input type="text" id="csClientSearch" placeholder="Search clients…" autocomplete="off"
+            style="width:100%; margin-bottom:8px; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-family:'Lexend',sans-serif; font-size:12.5px; color:var(--text);">
+          <label class="ms-all"><input type="checkbox" id="csClientAll" checked> All clients</label>
+          <div id="csClientList"></div>
+        </div>
       </div>
       <button id="csClearBtn" style="border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-family:'Lexend',sans-serif; font-weight:600; font-size:12px; padding:8px 14px; border-radius:20px; cursor:pointer;">Clear</button>
     </div>
@@ -1195,7 +1200,7 @@ function renderMonthlyTrend(){
 }
 
 /* ---------------- Render: Client Summary page ---------------- */
-const csFilter = { year:"All", months:new Set(), client:"All" };
+const csFilter = { year:"All", months:new Set(), clients:new Set() };
 let csBreakdownView = "total";
 
 function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
@@ -1203,19 +1208,20 @@ function monthLabel(d){ return d.toLocaleDateString("en-GB",{month:"short",year:
 // Financial year runs April -> March, so Jan/Feb/Mar belong to the FY that started the previous April.
 function fiscalYear(d){ return d.getMonth()>=3 ? d.getFullYear() : d.getFullYear()-1; }
 
-// Combines a client's Commercials rows (keyed by Date of Live) with their Consumable rows
-// (keyed by Month) into one chronological month-by-month series. name==="All" aggregates
-// across every client instead of filtering to one.
-function buildClientMonthly(name){
+// Combines the selected clients' Commercials rows (keyed by Date of Live) with their Consumable
+// rows (keyed by Month) into one chronological month-by-month series. An empty/missing
+// selectedClients set means "All" — aggregate across every client instead of filtering.
+function buildClientMonthly(selectedClients){
+  const useAll = !selectedClients || selectedClients.size===0;
   const map = {};
   COMMERCIALS.forEach(c=>{
-    if((name!=="All" && c.client!==name) || !c.dateOfLive) return;
+    if((!useAll && !selectedClients.has(c.client)) || !c.dateOfLive) return;
     const k=monthKey(c.dateOfLive);
     if(!map[k]) map[k]={key:k, date:new Date(c.dateOfLive.getFullYear(),c.dateOfLive.getMonth(),1), commRev:0,commCost:0,consRev:0,consCost:0};
     map[k].commRev+=c.revenue; map[k].commCost+=c.cost;
   });
   CONSUMABLE.forEach(c=>{
-    if((name!=="All" && c.client!==name) || !c.month) return;
+    if((!useAll && !selectedClients.has(c.client)) || !c.month) return;
     const k=monthKey(c.month);
     if(!map[k]) map[k]={key:k, date:new Date(c.month.getFullYear(),c.month.getMonth(),1), commRev:0,commCost:0,consRev:0,consCost:0};
     map[k].consRev+=c.revenue; map[k].consCost+=c.cost;
@@ -1234,6 +1240,13 @@ function updateCsMonthBtn(){
   if(csFilter.months.size===0){ btn.textContent = "All months"; return; }
   const sorted = [...csFilter.months].sort((a,b)=>a-b);
   btn.textContent = sorted.length<=2 ? sorted.map(m=>SHORT[m-1]).join(", ") : `${sorted.length} months`;
+}
+
+function updateCsClientBtn(){
+  const btn = document.getElementById("csClientBtn");
+  if(csFilter.clients.size===0){ btn.textContent = "All clients"; return; }
+  const sel = [...csFilter.clients];
+  btn.textContent = sel.length===1 ? sel[0] : `${sel.length} clients selected`;
 }
 
 function populateCsFilters(){
@@ -1273,8 +1286,24 @@ function populateCsFilters(){
     });
   }
 
-  const datalist = document.getElementById("csClientDatalist");
-  datalist.innerHTML = CLIENT_NAMES.map(n=>`<option value="${n.replace(/"/g,"&quot;")}"></option>`).join("");
+  // Client checkbox list — rebuilt whenever the number of known clients changes (e.g. after the
+  // first live sync replaces the small fallback snapshot), while preserving any selections the
+  // user has already made so a mid-session data refresh doesn't silently reset their filter.
+  const clientPanel = document.getElementById("csClientPanel");
+  if(clientPanel.dataset.builtCount !== String(CLIENT_NAMES.length)){
+    const listEl = document.getElementById("csClientList");
+    listEl.innerHTML = CLIENT_NAMES.map(n=>`<label class="cs-client-row"><input type="checkbox" class="cs-client-cb" value="${n.replace(/"/g,"&quot;")}"> ${n}</label>`).join("");
+    clientPanel.dataset.builtCount = String(CLIENT_NAMES.length);
+    listEl.querySelectorAll(".cs-client-cb").forEach(cb=>{
+      cb.checked = csFilter.clients.has(cb.value);
+      cb.addEventListener("change", ()=>{
+        if(cb.checked) csFilter.clients.add(cb.value); else csFilter.clients.delete(cb.value);
+        document.getElementById("csClientAll").checked = csFilter.clients.size===0;
+        updateCsClientBtn();
+        renderClientSummary();
+      });
+    });
+  }
 }
 
 document.getElementById("csYear").addEventListener("change", e=>{ csFilter.year=e.target.value; renderClientSummary(); });
@@ -1283,24 +1312,43 @@ document.getElementById("csMonthBtn").addEventListener("click", e=>{
   const panel = document.getElementById("csMonthPanel");
   panel.style.display = panel.style.display==="none" ? "block" : "none";
 });
+document.getElementById("csClientBtn").addEventListener("click", e=>{
+  e.stopPropagation();
+  const panel = document.getElementById("csClientPanel");
+  panel.style.display = panel.style.display==="none" ? "block" : "none";
+});
 document.addEventListener("click", e=>{
-  const panel = document.getElementById("csMonthPanel");
-  if(panel && panel.style.display!=="none" && !panel.contains(e.target) && e.target.id!=="csMonthBtn"){
-    panel.style.display="none";
+  const monthPanel = document.getElementById("csMonthPanel");
+  if(monthPanel && monthPanel.style.display!=="none" && !monthPanel.contains(e.target) && e.target.id!=="csMonthBtn"){
+    monthPanel.style.display="none";
+  }
+  const clientPanel = document.getElementById("csClientPanel");
+  if(clientPanel && clientPanel.style.display!=="none" && !clientPanel.contains(e.target) && e.target.id!=="csClientBtn"){
+    clientPanel.style.display="none";
   }
 });
 
-const csClientInput = document.getElementById("csClientInput");
-function tryMatchClient(){
-  const typed = csClientInput.value.trim();
-  if(!typed){ csFilter.client = "All"; renderClientSummary(); return; }
-  const match = CLIENT_NAMES.find(n=>n.toLowerCase()===typed.toLowerCase());
-  if(match){ csFilter.client = match; renderClientSummary(); }
-}
-csClientInput.addEventListener("input", tryMatchClient);
-csClientInput.addEventListener("change", tryMatchClient);
+document.getElementById("csClientAll").addEventListener("change", e=>{
+  if(e.target.checked){
+    csFilter.clients.clear();
+    document.querySelectorAll(".cs-client-cb").forEach(cb=>cb.checked=false);
+    updateCsClientBtn(); renderClientSummary();
+  } else if(csFilter.clients.size===0){
+    e.target.checked = true; // keep at least "All" checked when nothing else is picked
+  }
+});
+document.getElementById("csClientSearch").addEventListener("input", e=>{
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll(".cs-client-row").forEach(row=>{
+    row.style.display = row.textContent.trim().toLowerCase().includes(q) ? "" : "none";
+  });
+});
+
 document.getElementById("csClearBtn").addEventListener("click", ()=>{
-  csClientInput.value=""; csFilter.client="All"; csFilter.year="All"; csFilter.months.clear();
+  csFilter.clients.clear(); csFilter.year="All"; csFilter.months.clear();
+  document.querySelectorAll(".cs-client-cb").forEach(cb=>cb.checked=false);
+  const clientAll = document.getElementById("csClientAll"); if(clientAll) clientAll.checked=true;
+  updateCsClientBtn();
   const panel = document.getElementById("csMonthPanel");
   if(panel){
     panel.querySelectorAll(".cs-month-cb").forEach(cb=>cb.checked=false);
@@ -1343,7 +1391,7 @@ function renderCsBreakdownTable(yearRows){
 function renderClientSummary(){
   populateCsFilters();
 
-  const rowsAll = buildClientMonthly(csFilter.client);
+  const rowsAll = buildClientMonthly(csFilter.clients);
   const yearRows = csFilter.year==="All" ? rowsAll : rowsAll.filter(r=>fiscalYear(r.date)===+csFilter.year);
   // KPI cards respect financial Year (Apr-Mar), selected Month(s) and Client; the monthly
   // table/trend below only respects Year (+ Client), so the growth-over-time picture stays
@@ -1396,7 +1444,8 @@ function renderClientSummary(){
     const overallPct = first.totRev ? ((last.totRev-first.totRev)/first.totRev*100) : null;
     const trendWord = overallPct===null ? "flat" : (overallPct>=0 ? "positive" : "negative");
     const trendClass = overallPct===null ? "trend-flat" : (overallPct>=0 ? "trend-up" : "trend-down");
-    const clientLabel = csFilter.client==="All" ? "All clients" : csFilter.client;
+    const clientSel = [...csFilter.clients];
+    const clientLabel = clientSel.length===0 ? "All clients" : (clientSel.length===1 ? clientSel[0] : clientSel.length+" selected clients");
     summaryEl.innerHTML = `<b>${clientLabel}</b> shows an overall <b class="${trendClass}">${trendWord}</b> trend
       from ${first.label} to ${last.label}${overallPct!==null?` (${overallPct>=0?"+":""}${overallPct.toFixed(1)}% total revenue)`:""} ·
       grew month-over-month in ${ups} of ${ups+downs} tracked months.`;

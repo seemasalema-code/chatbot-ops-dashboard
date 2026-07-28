@@ -178,6 +178,18 @@
   .cs-stat .v{font-family:'Lexend', sans-serif; font-size:19px; font-weight:700; margin-top:6px;}
   .cs-cr{display:block; font-family:'Lexend', sans-serif; font-size:11px; font-weight:500; color:var(--text-faint); margin-top:2px;}
   .cs-group-title{text-align:center;}
+  .cs-stat-grid-4{grid-template-columns:repeat(4,1fr);}
+  @media(max-width:700px){ .cs-stat-grid-4{grid-template-columns:repeat(2,1fr);} }
+  /* Colour-code each metric so Revenue/Cost/Margin/Margin % read at a glance. */
+  .cs-stat.m-rev .l, .cs-stat.m-rev .v{color:var(--live);}
+  .cs-stat.m-cost .l, .cs-stat.m-cost .v{color:var(--delay);}
+  .cs-stat.m-margin .l, .cs-stat.m-margin .v{color:var(--accent);}
+  .cs-stat.m-rev .cs-cr{color:var(--live); opacity:.75;}
+  .cs-stat.m-cost .cs-cr{color:var(--delay); opacity:.75;}
+  .cs-stat.m-margin .cs-cr{color:var(--accent); opacity:.75;}
+  .cs-stat.m-marginpct{background:var(--accent) !important;}
+  .cs-stat.m-marginpct .l{color:rgba(255,255,255,.8);}
+  .cs-stat.m-marginpct .v{color:#fff; font-size:21px;}
   .cs-groups{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:16px;}
   .cs-empty{padding:70px 20px; text-align:center; color:var(--text-faint); font-family:'Lexend', sans-serif; font-size:13.5px;}
   .cs-groups-pair{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:16px;}
@@ -361,28 +373,31 @@
     <div id="csContent" style="margin-top:16px;">
       <div class="panel cs-card cs-card-total">
         <div class="cs-group-title">Total (Commercials + Consumable)</div>
-        <div class="cs-stat-grid">
-          <div class="cs-stat"><div class="l">Revenue</div><div class="v" id="csTotRev">—</div></div>
-          <div class="cs-stat"><div class="l">Cost</div><div class="v" id="csTotCost">—</div></div>
-          <div class="cs-stat"><div class="l">Margin</div><div class="v" id="csTotMargin">—</div></div>
+        <div class="cs-stat-grid cs-stat-grid-4">
+          <div class="cs-stat m-rev"><div class="l">Revenue</div><div class="v" id="csTotRev">—</div></div>
+          <div class="cs-stat m-cost"><div class="l">Cost</div><div class="v" id="csTotCost">—</div></div>
+          <div class="cs-stat m-margin"><div class="l">Margin</div><div class="v" id="csTotMargin">—</div></div>
+          <div class="cs-stat m-marginpct"><div class="l">Margin %</div><div class="v" id="csTotMarginPct">—</div></div>
         </div>
       </div>
 
       <div class="cs-groups-pair">
         <div class="panel cs-card cs-card-comm">
           <div class="cs-group-title">Commercials</div>
-          <div class="cs-stat-grid">
-            <div class="cs-stat"><div class="l">Revenue</div><div class="v" id="csCommRev">—</div></div>
-            <div class="cs-stat"><div class="l">Cost</div><div class="v" id="csCommCost">—</div></div>
-            <div class="cs-stat"><div class="l">Margin</div><div class="v" id="csCommMargin">—</div></div>
+          <div class="cs-stat-grid cs-stat-grid-4">
+            <div class="cs-stat m-rev"><div class="l">Revenue</div><div class="v" id="csCommRev">—</div></div>
+            <div class="cs-stat m-cost"><div class="l">Cost</div><div class="v" id="csCommCost">—</div></div>
+            <div class="cs-stat m-margin"><div class="l">Margin</div><div class="v" id="csCommMargin">—</div></div>
+            <div class="cs-stat m-marginpct"><div class="l">Margin %</div><div class="v" id="csCommMarginPct">—</div></div>
           </div>
         </div>
         <div class="panel cs-card cs-card-cons">
           <div class="cs-group-title">Consumable</div>
-          <div class="cs-stat-grid">
-            <div class="cs-stat"><div class="l">Revenue</div><div class="v" id="csConsRev">—</div></div>
-            <div class="cs-stat"><div class="l">Cost</div><div class="v" id="csConsCost">—</div></div>
-            <div class="cs-stat"><div class="l">Margin</div><div class="v" id="csConsMargin">—</div></div>
+          <div class="cs-stat-grid cs-stat-grid-4">
+            <div class="cs-stat m-rev"><div class="l">Revenue</div><div class="v" id="csConsRev">—</div></div>
+            <div class="cs-stat m-cost"><div class="l">Cost</div><div class="v" id="csConsCost">—</div></div>
+            <div class="cs-stat m-margin"><div class="l">Margin</div><div class="v" id="csConsMargin">—</div></div>
+            <div class="cs-stat m-marginpct"><div class="l">Margin %</div><div class="v" id="csConsMarginPct">—</div></div>
           </div>
         </div>
       </div>
@@ -493,7 +508,9 @@ const fmtINR = n => "₹" + Number(n||0).toLocaleString("en-IN");
 function fmtINRCr(n){
   const v = Number(n||0);
   if(v===0) return fmtINR(v);
-  return `${fmtINR(v)}<span class="cs-cr">(₹${(v/1e7).toFixed(2)} Cr)</span>`;
+  const abs = Math.abs(v);
+  const compact = abs>=1e7 ? `₹${(v/1e7).toFixed(2)} Cr` : `₹${(v/1e5).toFixed(2)} L`;
+  return `${fmtINR(v)}<span class="cs-cr">(${compact})</span>`;
 }
 // Compact Cr/Lakh figure with no thousands grouping — used in the narrow Monthly Breakdown table
 // so columns fit without horizontal scrolling.
@@ -1160,16 +1177,20 @@ function renderClientSummary(){
   const commRev=sum(scoped,"commRev"), commCost=sum(scoped,"commCost"), commMargin=commRev-commCost;
   const consRev=sum(scoped,"consRev"), consCost=sum(scoped,"consCost"), consMargin=consRev-consCost;
   const totRev=commRev+consRev, totCost=commCost+consCost, totMargin=totRev-totCost;
+  const marginPct = (margin,rev) => rev ? (margin/rev*100).toFixed(1)+"%" : "—";
 
   document.getElementById("csCommRev").innerHTML = fmtINRCr(commRev);
   document.getElementById("csCommCost").innerHTML = fmtINRCr(commCost);
   document.getElementById("csCommMargin").innerHTML = fmtINRCr(commMargin);
+  document.getElementById("csCommMarginPct").textContent = marginPct(commMargin, commRev);
   document.getElementById("csConsRev").innerHTML = fmtINRCr(consRev);
   document.getElementById("csConsCost").innerHTML = fmtINRCr(consCost);
   document.getElementById("csConsMargin").innerHTML = fmtINRCr(consMargin);
+  document.getElementById("csConsMarginPct").textContent = marginPct(consMargin, consRev);
   document.getElementById("csTotRev").innerHTML = fmtINRCr(totRev);
   document.getElementById("csTotCost").innerHTML = fmtINRCr(totCost);
   document.getElementById("csTotMargin").innerHTML = fmtINRCr(totMargin);
+  document.getElementById("csTotMarginPct").textContent = marginPct(totMargin, totRev);
 
   renderCsBreakdownTable(yearRows);
 

@@ -184,29 +184,44 @@
   /* Colour-code each metric with soft pastel tints — Revenue/Cost/Margin/Margin % read at a
      glance without any single box clashing as a harsh solid block. Margin uses a soft teal
      instead of purple so nothing in this tab reads as a jarring solid accent colour. */
-  .cs-stat.m-rev{background:var(--live-soft) !important;}
-  .cs-stat.m-rev .l, .cs-stat.m-rev .v{color:var(--live);}
-  .cs-stat.m-cost{background:var(--delay-soft) !important;}
-  .cs-stat.m-cost .l, .cs-stat.m-cost .v{color:var(--delay);}
-  .cs-stat.m-margin{background:var(--cs-teal-soft) !important;}
+  .cs-stat.m-rev{background:#D6F5E3 !important; border:1.5px solid #AEE9C6 !important;}
+  .cs-stat.m-rev .l, .cs-stat.m-rev .v{color:#0E7A3D;}
+  .cs-stat.m-cost{background:#FBDADA !important; border:1.5px solid #F3B7B7 !important;}
+  .cs-stat.m-cost .l, .cs-stat.m-cost .v{color:#B91C1C;}
+  .cs-stat.m-margin{background:var(--cs-teal-soft) !important; border:1.5px solid var(--cs-teal-border) !important;}
   .cs-stat.m-margin .l, .cs-stat.m-margin .v{color:var(--cs-teal);}
-  .cs-stat.m-rev .cs-cr{color:var(--live); opacity:.75;}
-  .cs-stat.m-cost .cs-cr{color:var(--delay); opacity:.75;}
-  .cs-stat.m-margin .cs-cr{color:var(--cs-teal); opacity:.75;}
+  .cs-stat.m-rev .cs-cr{color:#0E7A3D; opacity:.8;}
+  .cs-stat.m-cost .cs-cr{color:#B91C1C; opacity:.8;}
+  .cs-stat.m-margin .cs-cr{color:var(--cs-teal); opacity:.8;}
   .cs-stat.m-marginpct{background:var(--cs-teal-soft) !important; border:1.5px solid var(--cs-teal-border) !important;}
-  .cs-stat.m-marginpct .l{color:var(--cs-teal); opacity:.8;}
+  .cs-stat.m-marginpct .l{color:var(--cs-teal); opacity:.85;}
   .cs-stat.m-marginpct .v{color:var(--cs-teal); font-size:21px;}
+  /* Each card family (Total/Commercials/Consumable) gets its own Margin colour so the
+     three sections read as distinct blocks at a glance, instead of every card repeating
+     the same green/red/teal stripes. */
+  .cs-card-comm .cs-stat.m-margin, .cs-card-comm .cs-stat.m-marginpct{background:#DCEAFE !important; border-color:#B9D6FC !important;}
+  .cs-card-comm .cs-stat.m-margin .l, .cs-card-comm .cs-stat.m-margin .v,
+  .cs-card-comm .cs-stat.m-marginpct .l, .cs-card-comm .cs-stat.m-marginpct .v{color:#1D4ED8;}
+  .cs-card-comm .cs-stat.m-margin .cs-cr{color:#1D4ED8;}
+  .cs-card-cons .cs-stat.m-margin, .cs-card-cons .cs-stat.m-marginpct{background:#FDE8CB !important; border-color:#FBD49B !important;}
+  .cs-card-cons .cs-stat.m-margin .l, .cs-card-cons .cs-stat.m-margin .v,
+  .cs-card-cons .cs-stat.m-marginpct .l, .cs-card-cons .cs-stat.m-marginpct .v{color:#B45309;}
+  .cs-card-cons .cs-stat.m-margin .cs-cr{color:#B45309;}
   .cs-groups{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:16px;}
   .cs-empty{padding:70px 20px; text-align:center; color:var(--text-faint); font-family:'Lexend', sans-serif; font-size:13.5px;}
   .cs-groups-pair{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:16px;}
   @media(max-width:960px){ .cs-groups-pair{grid-template-columns:1fr;} }
-  .cs-card{border:1px solid transparent;}
-  .cs-card-total{background:var(--cs-teal-soft); border-color:var(--cs-teal-border);}
-  .cs-card-total .cs-stat{background:rgba(255,255,255,.6);}
-  .cs-card-comm{background:#EFF6FF; border-color:#DBEAFE;}
-  .cs-card-comm .cs-stat{background:rgba(255,255,255,.6);}
-  .cs-card-cons{background:#FFF7ED; border-color:#FFE8CC;}
-  .cs-card-cons .cs-stat{background:rgba(255,255,255,.6);}
+  .cs-card{border:1.5px solid transparent; border-left-width:5px;}
+  .cs-card-total{background:var(--cs-teal-soft); border-color:var(--cs-teal-border); border-left-color:var(--cs-teal);}
+  .cs-card-total .cs-stat{background:rgba(255,255,255,.7);}
+  .cs-card-total .cs-group-title{color:var(--cs-teal);}
+  .cs-card-comm{background:#EAF2FE; border-color:#C7DFFC; border-left-color:#2563EB;}
+  .cs-card-comm .cs-stat{background:rgba(255,255,255,.7);}
+  .cs-card-comm .cs-group-title{color:#1D4ED8;}
+  .cs-card-cons{background:#FDF3E4; border-color:#FBDFB1; border-left-color:#D97706;}
+  .cs-card-cons .cs-stat{background:rgba(255,255,255,.7);}
+  .cs-card-cons .cs-group-title{color:#B45309;}
+  .cs-group-title{font-weight:700; font-size:12px;}
   /* Soft pastel active state for the Monthly Breakdown tabs — no solid saturated fill. */
   #csBreakdownTabs .tab[data-view="total"].active{background:var(--cs-teal-soft); color:var(--cs-teal); box-shadow:none;}
   #csBreakdownTabs .tab[data-view="comm"].active{background:#EFF6FF; color:#2563EB; box-shadow:none;}

@@ -14,6 +14,7 @@
     --live:#16A34A; --live-soft:#E7F7ED; --build:#2563EB; --build-soft:#EAF1FE;
     --pipe:#7C3AED; --pipe-soft:#F1EAFE; --hold:#D97706; --hold-soft:#FDF1E1;
     --delay:#DC2626; --delay-soft:#FDEAEA;
+    --cs-teal:#0F9488; --cs-teal-soft:#E1F5F2; --cs-teal-border:#C9EEE8;
     --shadow-sm:0 1px 2px rgba(23,26,53,.05); --shadow-md:0 10px 30px -14px rgba(29,32,72,.18);
     --radius:14px;
   }
@@ -181,30 +182,35 @@
   .cs-stat-grid-4{grid-template-columns:repeat(4,1fr);}
   @media(max-width:700px){ .cs-stat-grid-4{grid-template-columns:repeat(2,1fr);} }
   /* Colour-code each metric with soft pastel tints — Revenue/Cost/Margin/Margin % read at a
-     glance without any single box clashing as a harsh solid block. */
+     glance without any single box clashing as a harsh solid block. Margin uses a soft teal
+     instead of purple so nothing in this tab reads as a jarring solid accent colour. */
   .cs-stat.m-rev{background:var(--live-soft) !important;}
   .cs-stat.m-rev .l, .cs-stat.m-rev .v{color:var(--live);}
   .cs-stat.m-cost{background:var(--delay-soft) !important;}
   .cs-stat.m-cost .l, .cs-stat.m-cost .v{color:var(--delay);}
-  .cs-stat.m-margin{background:var(--accent-soft) !important;}
-  .cs-stat.m-margin .l, .cs-stat.m-margin .v{color:var(--accent);}
+  .cs-stat.m-margin{background:var(--cs-teal-soft) !important;}
+  .cs-stat.m-margin .l, .cs-stat.m-margin .v{color:var(--cs-teal);}
   .cs-stat.m-rev .cs-cr{color:var(--live); opacity:.75;}
   .cs-stat.m-cost .cs-cr{color:var(--delay); opacity:.75;}
-  .cs-stat.m-margin .cs-cr{color:var(--accent); opacity:.75;}
-  .cs-stat.m-marginpct{background:var(--accent-soft) !important; border:1.5px solid rgba(109,94,240,.3) !important;}
-  .cs-stat.m-marginpct .l{color:var(--accent-dark); opacity:.8;}
-  .cs-stat.m-marginpct .v{color:var(--accent-dark); font-size:21px;}
+  .cs-stat.m-margin .cs-cr{color:var(--cs-teal); opacity:.75;}
+  .cs-stat.m-marginpct{background:var(--cs-teal-soft) !important; border:1.5px solid var(--cs-teal-border) !important;}
+  .cs-stat.m-marginpct .l{color:var(--cs-teal); opacity:.8;}
+  .cs-stat.m-marginpct .v{color:var(--cs-teal); font-size:21px;}
   .cs-groups{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:16px;}
   .cs-empty{padding:70px 20px; text-align:center; color:var(--text-faint); font-family:'Lexend', sans-serif; font-size:13.5px;}
   .cs-groups-pair{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:16px;}
   @media(max-width:960px){ .cs-groups-pair{grid-template-columns:1fr;} }
   .cs-card{border:1px solid transparent;}
-  .cs-card-total{background:#EEF2FF; border-color:#E0E7FF;}
+  .cs-card-total{background:var(--cs-teal-soft); border-color:var(--cs-teal-border);}
   .cs-card-total .cs-stat{background:rgba(255,255,255,.6);}
   .cs-card-comm{background:#EFF6FF; border-color:#DBEAFE;}
   .cs-card-comm .cs-stat{background:rgba(255,255,255,.6);}
   .cs-card-cons{background:#FFF7ED; border-color:#FFE8CC;}
   .cs-card-cons .cs-stat{background:rgba(255,255,255,.6);}
+  /* Soft pastel active state for the Monthly Breakdown tabs — no solid saturated fill. */
+  #csBreakdownTabs .tab[data-view="total"].active{background:var(--cs-teal-soft); color:var(--cs-teal); box-shadow:none;}
+  #csBreakdownTabs .tab[data-view="comm"].active{background:#EFF6FF; color:#2563EB; box-shadow:none;}
+  #csBreakdownTabs .tab[data-view="cons"].active{background:#FFF7ED; color:#B45309; box-shadow:none;}
   .cs-trend-row{display:flex; gap:20px; align-items:flex-start;}
   .cs-trend-chart{flex:1; min-width:0;}
   @media(max-width:900px){ .cs-trend-row{flex-direction:column;} }
@@ -370,6 +376,50 @@
         <div class="panel">
           <h2>Monthly Revenue &amp; Margin <small>all history</small></h2>
           <table class="rev"><thead><tr><th>Month</th><th style="text-align:right">Revenue</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="monthlyRevBody"></tbody></table>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== PAGE: CONSUMABLE ===================== -->
+  <section class="page" id="page-consumable">
+    <div class="kpi-row" id="consKpiRow"></div>
+    <div class="timebar">
+      <div class="tf-group"><label>View by</label><div class="seg" id="segViewCons"></div></div>
+      <div class="tf-group"><label>As of</label><input type="date" id="asOfDateCons"></div>
+      <div class="tf-group" id="yearGroupCons" style="display:none;">
+        <label>FY Year</label>
+        <select id="yearSelCons"></select>
+      </div>
+      <div class="tf-group" id="monthGroupCons" style="display:none; position:relative;">
+        <label>Month</label>
+        <button type="button" id="monthBtnCons" class="ms-btn">All months</button>
+        <div id="monthPanelCons" class="ms-panel" style="display:none;"></div>
+      </div>
+      <div class="period-label" id="periodLabelCons"></div>
+    </div>
+
+    <div class="rev-layout">
+      <div class="rev-main">
+        <div class="panel">
+          <h2>Consumable Revenue &amp; Margin by Client <small>click a row to filter the records below · Month within selected period</small></h2>
+          <table class="rev"><thead><tr><th>Client</th><th style="text-align:right">Revenue</th><th style="text-align:right">Cost</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="consByClient"></tbody></table>
+        </div>
+        <section id="recordsCons">
+          <div class="records-head">
+            <div class="records-title"><h2>Consumable Records in Period</h2><div class="breadcrumbs" id="breadcrumbsCons"></div></div>
+            <div class="rec-count" id="recCountCons"></div>
+          </div>
+          <div class="records-body">
+            <table class="data"><thead><tr><th>Client</th><th>Month</th><th style="text-align:right">Revenue</th><th style="text-align:right">Cost</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="consRecordsBody"></tbody></table>
+          </div>
+        </section>
+      </div>
+
+      <aside class="rev-side">
+        <div class="panel">
+          <h2>Monthly Revenue &amp; Margin <small>all history</small></h2>
+          <table class="rev"><thead><tr><th>Month</th><th style="text-align:right">Revenue</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="monthlyConsBody"></tbody></table>
         </div>
       </aside>
     </div>
@@ -724,7 +774,7 @@ syncBtn.addEventListener("click", ()=>{ syncBtn.disabled=true; syncData().finall
 setInterval(syncData, REFRESH_MS);
 
 /* ---------------- Page nav ---------------- */
-const PAGES = [{id:"chatbots",label:"Chatbots"},{id:"revenue",label:"Revenue & Margin"},{id:"clientsummary",label:"Client Summary"}];
+const PAGES = [{id:"chatbots",label:"Chatbots"},{id:"revenue",label:"Revenue & Margin"},{id:"consumable",label:"Consumable"},{id:"clientsummary",label:"Client Summary"}];
 let activePage = "chatbots";
 const pagenav = document.getElementById("pagenav");
 PAGES.forEach(p=>{
@@ -741,7 +791,7 @@ PAGES.forEach(p=>{
 
 /* ---------------- Time filter state (shared logic per page) ---------------- */
 function makeTimeState(){ return { view:"Monthly", asOf:new Date(), year:"All", months:new Set() }; }
-const timeChat = makeTimeState(), timeRev = makeTimeState();
+const timeChat = makeTimeState(), timeRev = makeTimeState(), timeCons = makeTimeState();
 
 function periodBounds(ts){
   if(ts.view==="Year"){
@@ -837,8 +887,10 @@ function initTimebar(segId, dateId, labelId, state, onChange, yearGroupId, month
 }
 initTimebar("segView","asOfDate","periodLabel", timeChat, ()=>renderChatbots(), "yearGroupChat","monthGroupChat");
 initTimebar("segViewRev","asOfDateRev","periodLabelRev", timeRev, ()=>renderRevenue(), "yearGroupRev","monthGroupRev");
+initTimebar("segViewCons","asOfDateCons","periodLabelCons", timeCons, ()=>renderConsumable(), "yearGroupCons","monthGroupCons");
 setupYearMonthUI("Chat", timeChat, ()=>renderChatbots());
 setupYearMonthUI("Rev", timeRev, ()=>renderRevenue());
+setupYearMonthUI("Cons", timeCons, ()=>renderConsumable());
 
 /* ---------------- Filter state (Chatbots page) ---------------- */
 const filters = { stage:"All", type:"All", vendor:null, aiEnabled:"All" };
@@ -1307,7 +1359,7 @@ function renderClientSummary(){
       const prev = yearRows[i-1];
       const pct = prev && prev.totRev ? ((r.totRev-prev.totRev)/prev.totRev*100) : null;
       if(pct!==null){ if(pct>=0) ups++; else downs++; }
-      const color = pct===null ? "var(--accent)" : (pct>=0 ? "var(--live)" : "var(--delay)");
+      const color = pct===null ? "var(--cs-teal)" : (pct>=0 ? "var(--live)" : "var(--delay)");
       const row = document.createElement("div"); row.className="trend-row";
       row.innerHTML = `<div class="tm">${r.label}</div>
         <div class="bar-cell" style="flex:1;"><div class="bar-track"><div class="bar-fill" style="width:${Math.max(2,r.totRev/maxRev*100)}%; background:${color}"></div></div></div>
@@ -1328,7 +1380,91 @@ function renderClientSummary(){
 function renderAll(){
   renderChatbots();
   renderRevenue();
+  renderConsumable();
   renderClientSummary();
+}
+
+/* ---------------- Render: Consumable page (mirrors Revenue & Margin, keyed by Client + Month) ---------------- */
+const consFilter = { client:null };
+function setConsClient(cl){ consFilter.client = (consFilter.client===cl) ? null : cl; renderConsumable(); }
+
+function renderConsumable(){
+  refreshYearMonthUI("Cons", timeCons);
+  const {start,end} = periodBounds(timeCons);
+  document.getElementById("periodLabelCons").textContent = timeCons.view==="Year"
+    ? (timeCons.year==="All" ? "All years" : `FY ${timeCons.year}-${String(+timeCons.year+1).slice(-2)}`) + " · " + monthBtnLabel(timeCons)
+    : fmtD(start) + (timeCons.view==="Daily" ? "" : " – " + fmtD(end));
+  const inPeriod = CONSUMABLE.filter(c => c.month && c.month>=start && c.month<=end && inMonthSet(timeCons, c.month));
+  const filteredPeriod = inPeriod.filter(c => !consFilter.client || c.client===consFilter.client);
+
+  const totalRev = inPeriod.reduce((a,r)=>a+r.revenue,0);
+  const totalCost = inPeriod.reduce((a,r)=>a+r.cost,0);
+  const totalMargin = totalRev-totalCost;
+  const marginPct = totalRev ? ((totalMargin/totalRev)*100).toFixed(1) : "0.0";
+
+  const kRow=document.getElementById("consKpiRow"); kRow.innerHTML="";
+  [
+    {label:"Revenue", value:fmtINR(totalRev), hint:timeCons.view+" view", color:"var(--live)"},
+    {label:"Cost", value:fmtINR(totalCost), hint:timeCons.view+" view", color:"var(--delay)"},
+    {label:"Margin", value:fmtINR(totalMargin), hint:"margin % "+marginPct+"%", color:"var(--cs-teal)"},
+    {label:"Billing Records", value:inPeriod.length, hint:"in selected period", color:"var(--text)"},
+  ].forEach(k=>{
+    const el=document.createElement("div"); el.className="kpi"; el.style.setProperty("--kpi-color",k.color);
+    el.innerHTML=`<div class="label">${k.label}</div><div class="value">${k.value}</div><div class="hint">${k.hint}</div>`;
+    kRow.appendChild(el);
+  });
+
+  const byClient={};
+  inPeriod.forEach(c=>{ if(!byClient[c.client]) byClient[c.client]={revenue:0,cost:0,margin:0}; byClient[c.client].revenue+=c.revenue; byClient[c.client].cost+=c.cost; byClient[c.client].margin+=c.margin; });
+  const consByClient=document.getElementById("consByClient"); consByClient.innerHTML="";
+  const clientKeys = Object.keys(byClient).sort((a,b)=>byClient[b].revenue-byClient[a].revenue);
+  clientKeys.forEach(cl=>{
+    const d=byClient[cl]; const pct = d.revenue ? ((d.margin/d.revenue)*100).toFixed(1) : "0.0";
+    const tr=document.createElement("tr");
+    tr.className = consFilter.client===cl ? "active-row" : "";
+    tr.innerHTML=`<td>${cl}</td><td class="num">${fmtINR(d.revenue)}</td>
+      <td class="num">${fmtINR(d.cost)}</td><td class="num">${fmtINR(d.margin)}</td><td class="num">${pct}%</td>`;
+    tr.addEventListener("click", ()=>setConsClient(cl));
+    consByClient.appendChild(tr);
+  });
+  if(clientKeys.length===0) consByClient.innerHTML=`<tr><td colspan="5"><div class="empty-state">No consumable billing in this period.</div></td></tr>`;
+
+  const crumbsCons=document.getElementById("breadcrumbsCons"); crumbsCons.innerHTML="";
+  if(consFilter.client) crumbsCons.appendChild(makeCrumb("Client: "+consFilter.client, ()=>setConsClient(consFilter.client)));
+
+  const body=document.getElementById("consRecordsBody"); body.innerHTML="";
+  const sortedRecords = [...filteredPeriod].sort((a,b)=>b.month-a.month);
+  if(sortedRecords.length===0){ body.innerHTML=`<tr><td colspan="6"><div class="empty-state">No consumable records match this filter.</div></td></tr>`; }
+  else sortedRecords.forEach(r=>{
+    const pct = r.revenue ? ((r.margin/r.revenue)*100).toFixed(1) : "0.0";
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${r.client}</td><td>${monthLabel(r.month)}</td><td class="num">${fmtINR(r.revenue)}</td>
+      <td class="num">${fmtINR(r.cost)}</td><td class="num">${fmtINR(r.margin)}</td><td class="num">${pct}%</td>`;
+    body.appendChild(tr);
+  });
+  document.getElementById("recCountCons").textContent = sortedRecords.length + (sortedRecords.length===1?" record":" records");
+
+  renderConsMonthlyTrend();
+}
+
+/* ---------------- Render: Monthly Revenue & Margin for Consumable (side panel, all history) ---------------- */
+function renderConsMonthlyTrend(){
+  const byMonth = {};
+  CONSUMABLE.forEach(c=>{
+    if(!c.month) return;
+    const key = c.month.getFullYear()+"-"+String(c.month.getMonth()+1).padStart(2,"0");
+    if(!byMonth[key]) byMonth[key] = { revenue:0, margin:0, label: monthLabel(c.month) };
+    byMonth[key].revenue += c.revenue; byMonth[key].margin += c.margin;
+  });
+  const keys = Object.keys(byMonth).sort().reverse();
+  const tbody = document.getElementById("monthlyConsBody"); tbody.innerHTML="";
+  if(keys.length===0){ tbody.innerHTML=`<tr><td colspan="4"><div class="empty-state">No consumable billing yet.</div></td></tr>`; return; }
+  keys.forEach(k=>{
+    const d = byMonth[k]; const pct = d.revenue ? ((d.margin/d.revenue)*100).toFixed(1) : "0.0";
+    const tr=document.createElement("tr");
+    tr.innerHTML=`<td>${d.label}</td><td class="num">${fmtINR(d.revenue)}</td><td class="num">${fmtINR(d.margin)}</td><td class="num">${pct}%</td>`;
+    tbody.appendChild(tr);
+  });
 }
 
 /* ---------------- Deep-link: ?month=YYYY-MM opens straight to that month's projects ---------------- */

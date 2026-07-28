@@ -188,25 +188,28 @@
   .cs-stat.m-rev .l, .cs-stat.m-rev .v{color:#0E7A3D;}
   .cs-stat.m-cost{background:#FBDADA !important; border:1.5px solid #F3B7B7 !important;}
   .cs-stat.m-cost .l, .cs-stat.m-cost .v{color:#B91C1C;}
-  .cs-stat.m-margin{background:var(--cs-teal-soft) !important; border:1.5px solid var(--cs-teal-border) !important;}
-  .cs-stat.m-margin .l, .cs-stat.m-margin .v{color:var(--cs-teal);}
   .cs-stat.m-rev .cs-cr{color:#0E7A3D; opacity:.8;}
   .cs-stat.m-cost .cs-cr{color:#B91C1C; opacity:.8;}
-  .cs-stat.m-margin .cs-cr{color:var(--cs-teal); opacity:.8;}
-  .cs-stat.m-marginpct{background:var(--cs-teal-soft) !important; border:1.5px solid var(--cs-teal-border) !important;}
-  .cs-stat.m-marginpct .l{color:var(--cs-teal); opacity:.85;}
-  .cs-stat.m-marginpct .v{color:var(--cs-teal); font-size:21px;}
-  /* Each card family (Total/Commercials/Consumable) gets its own Margin colour so the
-     three sections read as distinct blocks at a glance, instead of every card repeating
-     the same green/red/teal stripes. */
-  .cs-card-comm .cs-stat.m-margin, .cs-card-comm .cs-stat.m-marginpct{background:#DCEAFE !important; border-color:#B9D6FC !important;}
-  .cs-card-comm .cs-stat.m-margin .l, .cs-card-comm .cs-stat.m-margin .v,
-  .cs-card-comm .cs-stat.m-marginpct .l, .cs-card-comm .cs-stat.m-marginpct .v{color:#1D4ED8;}
+  /* Margin vs Margin % need to read as two different tiers, not the same tint repeated:
+     Margin sits one shade darker than the card background, Margin % is a solid filled
+     chip in the same hue so it visibly "pops" as the headline number. Each card family
+     (Total/Commercials/Consumable) keeps its own hue so the three sections stay distinct. */
+  .cs-stat.m-margin{background:#C7EBE4 !important; border:1.5px solid #A9DED4 !important;}
+  .cs-stat.m-margin .l, .cs-stat.m-margin .v{color:#0B6B60;}
+  .cs-stat.m-margin .cs-cr{color:#0B6B60; opacity:.8;}
+  .cs-stat.m-marginpct{background:var(--cs-teal) !important; border:1.5px solid var(--cs-teal) !important;}
+  .cs-stat.m-marginpct .l{color:#fff; opacity:.85;}
+  .cs-stat.m-marginpct .v{color:#fff; font-size:21px;}
+  .cs-card-comm .cs-stat.m-margin{background:#C7DDFB !important; border-color:#A9CCF8 !important;}
+  .cs-card-comm .cs-stat.m-margin .l, .cs-card-comm .cs-stat.m-margin .v{color:#1D4ED8;}
   .cs-card-comm .cs-stat.m-margin .cs-cr{color:#1D4ED8;}
-  .cs-card-cons .cs-stat.m-margin, .cs-card-cons .cs-stat.m-marginpct{background:#FDE8CB !important; border-color:#FBD49B !important;}
-  .cs-card-cons .cs-stat.m-margin .l, .cs-card-cons .cs-stat.m-margin .v,
-  .cs-card-cons .cs-stat.m-marginpct .l, .cs-card-cons .cs-stat.m-marginpct .v{color:#B45309;}
+  .cs-card-comm .cs-stat.m-marginpct{background:#2563EB !important; border-color:#2563EB !important;}
+  .cs-card-comm .cs-stat.m-marginpct .l, .cs-card-comm .cs-stat.m-marginpct .v{color:#fff;}
+  .cs-card-cons .cs-stat.m-margin{background:#FBE0B4 !important; border-color:#F8D18F !important;}
+  .cs-card-cons .cs-stat.m-margin .l, .cs-card-cons .cs-stat.m-margin .v{color:#B45309;}
   .cs-card-cons .cs-stat.m-margin .cs-cr{color:#B45309;}
+  .cs-card-cons .cs-stat.m-marginpct{background:#D97706 !important; border-color:#D97706 !important;}
+  .cs-card-cons .cs-stat.m-marginpct .l, .cs-card-cons .cs-stat.m-marginpct .v{color:#fff;}
   .cs-groups{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:16px;}
   .cs-empty{padding:70px 20px; text-align:center; color:var(--text-faint); font-family:'Lexend', sans-serif; font-size:13.5px;}
   .cs-groups-pair{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:16px;}
@@ -877,13 +880,13 @@ function setupYearMonthUI(prefix, state, onChange){
   });
 }
 
-function initTimebar(segId, dateId, labelId, state, onChange, yearGroupId, monthGroupId){
+function initTimebar(segId, dateId, labelId, state, onChange, yearGroupId, monthGroupId, views){
   const seg = document.getElementById(segId);
   const dateInput0 = document.getElementById(dateId);
   const dateGroup = dateInput0.parentElement;
   const yearGroup = yearGroupId ? document.getElementById(yearGroupId) : null;
   const monthGroup = monthGroupId ? document.getElementById(monthGroupId) : null;
-  ["Daily","Weekly","Monthly","Year"].forEach(v=>{
+  (views || ["Daily","Weekly","Monthly","Year"]).forEach(v=>{
     const b=document.createElement("button"); b.textContent=v; b.className=v===state.view?"active":"";
     b.addEventListener("click", ()=>{
       state.view=v;
@@ -902,7 +905,7 @@ function initTimebar(segId, dateId, labelId, state, onChange, yearGroupId, month
 }
 initTimebar("segView","asOfDate","periodLabel", timeChat, ()=>renderChatbots(), "yearGroupChat","monthGroupChat");
 initTimebar("segViewRev","asOfDateRev","periodLabelRev", timeRev, ()=>renderRevenue(), "yearGroupRev","monthGroupRev");
-initTimebar("segViewCons","asOfDateCons","periodLabelCons", timeCons, ()=>renderConsumable(), "yearGroupCons","monthGroupCons");
+initTimebar("segViewCons","asOfDateCons","periodLabelCons", timeCons, ()=>renderConsumable(), "yearGroupCons","monthGroupCons", ["Monthly","Year"]);
 setupYearMonthUI("Chat", timeChat, ()=>renderChatbots());
 setupYearMonthUI("Rev", timeRev, ()=>renderRevenue());
 setupYearMonthUI("Cons", timeCons, ()=>renderConsumable());

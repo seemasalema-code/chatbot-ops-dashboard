@@ -372,7 +372,7 @@
     <div class="rev-layout">
       <div class="rev-main">
         <div class="panel">
-          <h2>Revenue &amp; Margin by Vendor <small>click a row to see which chatbots · Date of Live within selected period</small></h2>
+          <h2>Chatbots R&amp;M by Vendor <small>click a row to see which chatbots · month within selected period</small></h2>
           <table class="rev"><thead><tr><th>Vendor</th><th style="text-align:right">Revenue</th><th style="text-align:right">Cost</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="revByVendor"></tbody></table>
         </div>
         <div class="panel" style="margin-top:16px;">
@@ -392,7 +392,7 @@
 
       <aside class="rev-side">
         <div class="panel">
-          <h2>Monthly Revenue &amp; Margin <small>all history</small></h2>
+          <h2>Monthly Chatbots R&amp;M <small>all history</small></h2>
           <table class="rev"><thead><tr><th>Month</th><th style="text-align:right">Revenue</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="monthlyRevBody"></tbody></table>
         </div>
       </aside>
@@ -540,7 +540,7 @@
    ========================================================================= */
 const SHEET_ID = "1SQxJ-m_0N06qEJS4kCnC4sPJtciwJg54nINL9_FZVNs";
 const TAB_PROJECTS = "Chatbot Projects";
-const TAB_COMMERCIALS = "Commercials";
+const TAB_CHATBOTRM = "Chatbot R&M";
 const TAB_CONSUMABLE = "Consumable";
 const TAB_CLIENTLIST = "Client List";
 const REFRESH_MS = 60000;
@@ -584,7 +584,7 @@ let PROJECTS = [
   ["Axis Securities","WhatsApp","Limechat","Quotes Given"],["Sun Bangla","WhatsApp","Limechat","Build"],["CAMS","WhatsApp","Talk.ai","Build"],
 ].map(([client,platform,vendor,status])=>({client,platform,vendor,status,stage:toStage(status),type:toType(platform),dates:{}}));
 let DELAYED_COUNT = 0;
-let COMMERCIALS = []; // {client, vendor, dateOfLive(Date|null), revenue, cost, margin}
+let COMMERCIALS = []; // {client, chatbot, vendor, dateOfLive(Date|null), revenue, cost, margin} — one row per chatbot per month, sourced from the "Chatbot R&M" sheet (dateOfLive here means "month of this row")
 let CONSUMABLE = []; // {client, month(Date|null), revenue, cost, margin}
 let CLIENT_NAMES = []; // union of Client List sheet + every client name seen in Projects/Commercials/Consumable
 let usingLiveData = false;
@@ -667,18 +667,18 @@ async function fetchSheetRows(sheetName){
 async function syncData(){
   setSyncState("connecting");
   try{
-    const [proj, comm] = await Promise.all([fetchSheetRows(TAB_PROJECTS), fetchSheetRows(TAB_COMMERCIALS)]);
+    const [proj, rm] = await Promise.all([fetchSheetRows(TAB_PROJECTS), fetchSheetRows(TAB_CHATBOTRM)]);
     // Consumable / Client List are fetched separately and tolerate failure (e.g. tab renamed) —
-    // a problem with either of these should not take down the core Chatbots/Revenue pages.
+    // a problem with either of these should not take down the core Projects/Chatbots R&M pages.
     let cons = {rows:[], raw:""}, clList = {rows:[], raw:""};
     try{ cons = await fetchSheetRows(TAB_CONSUMABLE); }catch(e){ console.warn("Consumable sheet fetch failed:", e); }
     try{ clList = await fetchSheetRows(TAB_CLIENTLIST); }catch(e){ console.warn("Client List sheet fetch failed:", e); }
 
-    const combinedHash = simpleHash(proj.raw + "||" + comm.raw + "||" + cons.raw + "||" + clList.raw);
+    const combinedHash = simpleHash(proj.raw + "||" + rm.raw + "||" + cons.raw + "||" + clList.raw);
     const changed = lastCsvHash !== null && combinedHash !== lastCsvHash;
     lastCsvHash = combinedHash;
 
-    const projRows = proj.rows, commRows = comm.rows;
+    const projRows = proj.rows, rmRows = rm.rows;
     const pHeaderIdx = projRows.findIndex(r => (r[1]||"").trim() === "Chatbot");
     if(pHeaderIdx === -1) throw new Error("Couldn't find header row in '" + TAB_PROJECTS + "'");
     // Column positions are fixed by sheet layout: col 0 is "Client" (the company name —
@@ -704,21 +704,24 @@ async function syncData(){
       if(cDelay!==undefined && (r[cDelay]||"").trim().startsWith("Delayed")) delayed++;
     }
 
-    const cHeaderIdx = commRows.findIndex(r => (r[1]||"").trim() === "Chatbot");
+    const rmHeaderIdx = rmRows.findIndex(r => (r[1]||"").trim() === "Chatbot");
     const newCommercials = [];
-    if(cHeaderIdx !== -1){
-      // Same fixed-position addressing as above — several header cells in this tab
-      // (No of Paid Agents / Per Agent Pricing / etc.) are currency-formatted and their
-      // label text is stripped on export. Col 0 is "Client" (company name), col 1 is
-      // "Chatbot" (specific project name, used to join back to PROJECTS).
-      const kClient=0, kChatbot=1, kVendor=5, kLive=7, kCost=19, kRev=31, kMargin=32;
+    if(rmHeaderIdx !== -1){
+      // "Chatbot R&M" sheet layout (fixed by the sheet-build Apps Script — 28 cols, A-AB):
+      // A Client, B Chatbot, C Vendor, D Month, E Financial Year, F-H AI/Agent/Conversation Qty,
+      // I-Q Vendor-side cost breakdown (Q = Total Cost Vendor), R-Z Netcore-side revenue
+      // breakdown (Z = Total Revenue Netcore), AA Margin, AB Margin %. One row per chatbot
+      // PER MONTH (not a single all-time snapshot like the old Commercials sheet), so a chatbot
+      // that's been live for 6 months contributes 6 rows here — that's what lets every date-range
+      // filter below aggregate monthly instead of dumping the whole deal into one month.
+      const kClient=0, kChatbot=1, kVendor=2, kMonth=3, kCost=16, kRev=25, kMargin=26;
       const num = s => { const n = parseFloat((s||"0").toString().replace(/[₹,]/g,"")); return isNaN(n)?0:n; };
-      for(let i=cHeaderIdx+1;i<commRows.length;i++){
-        const r = commRows[i]; const chatbot = (r[kChatbot]||"").trim();
+      for(let i=rmHeaderIdx+1;i<rmRows.length;i++){
+        const r = rmRows[i]; const chatbot = (r[kChatbot]||"").trim();
         if(!chatbot) continue;
         const client = (r[kClient]||"").trim() || chatbot;
         newCommercials.push({ client, chatbot, vendor:(r[kVendor]||"").trim()||"Unassigned",
-          dateOfLive: parseDate(r[kLive]), revenue:num(r[kRev]), cost:num(r[kCost]), margin:num(r[kMargin]) });
+          dateOfLive: parseDate(r[kMonth]), revenue:num(r[kRev]), cost:num(r[kCost]), margin:num(r[kMargin]) });
       }
     }
 
@@ -792,7 +795,7 @@ syncBtn.addEventListener("click", ()=>{ syncBtn.disabled=true; syncData().finall
 setInterval(syncData, REFRESH_MS);
 
 /* ---------------- Page nav ---------------- */
-const PAGES = [{id:"chatbots",label:"Chatbots"},{id:"revenue",label:"Revenue & Margin"},{id:"consumable",label:"Consumable"},{id:"clientsummary",label:"Client Summary"}];
+const PAGES = [{id:"chatbots",label:"Projects"},{id:"revenue",label:"Chatbots R&M"},{id:"consumable",label:"Consumable"},{id:"clientsummary",label:"Client Summary"}];
 let activePage = "chatbots";
 const pagenav = document.getElementById("pagenav");
 PAGES.forEach(p=>{
@@ -944,7 +947,7 @@ function renderChatbots(){
     {label:"Total Chatbots", value:total, hint:"across all stages", color:"var(--text)", action:clearFilters},
     {label:"Live", value:liveCount, hint:"in production", color:"var(--live)", action:()=>setStage("Live")},
     {label:"Delayed", value:DELAYED_COUNT, hint:DELAYED_COUNT?"flagged in Delay Flag column":"none flagged yet", color:"var(--delay)", action:()=>{}},
-    {label:"Avg. Margin %", value:avgMarginPct+"%", hint:"from Commercials sheet", color:"var(--accent)", action:()=>{activePage="margin"; document.querySelector('[data-page="margin"]').click();}},
+    {label:"Avg. Margin %", value:avgMarginPct+"%", hint:"from Chatbot R&M sheet", color:"var(--accent)", action:()=>{document.querySelector('[data-page="revenue"]').click();}},
   ].forEach(k=>{
     const el=document.createElement("div"); el.className="kpi"; el.style.setProperty("--kpi-color",k.color);
     el.innerHTML=`<div class="label">${k.label}</div><div class="value">${k.value}</div><div class="hint">${k.hint}</div>`;
@@ -963,7 +966,7 @@ function renderChatbots(){
     {l:"Commercials Shared", n:PROJECTS.filter(p=>inPeriod(p.dates.comm)).length},
     {l:"Development Started", n:PROJECTS.filter(p=>inPeriod(p.dates.dev)).length},
     {l:"UAT Started", n:PROJECTS.filter(p=>inPeriod(p.dates.test)).length},
-    {l:"Went Live", n:COMMERCIALS.filter(c=>inPeriod(c.dateOfLive)).length},
+    {l:"Went Live", n:PROJECTS.filter(p=>inPeriod(p.dates.liveDate)).length},
   ];
   const psEl = document.getElementById("periodStats"); psEl.innerHTML="";
   pstats.forEach(s=>{ const d=document.createElement("div"); d.className="pstat"; d.innerHTML=`<div class="pn">${s.n}</div><div class="pl">${s.l}</div>`; psEl.appendChild(d); });
@@ -1074,7 +1077,7 @@ function makeCrumb(label,onClear){
   el.textContent=label+" "; el.appendChild(btn); return el;
 }
 
-/* ---------------- Render: Revenue & Margin page ---------------- */
+/* ---------------- Render: Chatbots R&M page (data sourced from the "Chatbot R&M" sheet, one row per chatbot per month) ---------------- */
 const revFilter = { vendor:null, type:null };
 function setRevVendor(v){ revFilter.vendor = (revFilter.vendor===v)?null:v; renderRevenue(); }
 function setRevType(t){ revFilter.type = (revFilter.type===t)?null:t; renderRevenue(); }
@@ -1164,7 +1167,7 @@ function renderRevenue(){
   renderMonthlyTrend();
 }
 
-/* ---------------- Render: Monthly Revenue & Margin (side panel, all history) ---------------- */
+/* ---------------- Render: Monthly Chatbots R&M (side panel, all history) ---------------- */
 function renderMonthlyTrend(){
   const byMonth = {};
   COMMERCIALS.forEach(c=>{
@@ -1407,7 +1410,7 @@ function renderAll(){
   renderClientSummary();
 }
 
-/* ---------------- Render: Consumable page (mirrors Revenue & Margin, keyed by Client + Month) ---------------- */
+/* ---------------- Render: Consumable page (mirrors Chatbots R&M, keyed by Client + Month) ---------------- */
 const consFilter = { client:null };
 function setConsClient(cl){ consFilter.client = (consFilter.client===cl) ? null : cl; renderConsumable(); }
 
@@ -1470,7 +1473,7 @@ function renderConsumable(){
   renderConsMonthlyTrend();
 }
 
-/* ---------------- Render: Monthly Revenue & Margin for Consumable (side panel, all history) ---------------- */
+/* ---------------- Render: Monthly Consumable Revenue & Margin (side panel, all history) ---------------- */
 function renderConsMonthlyTrend(){
   const byMonth = {};
   CONSUMABLE.forEach(c=>{

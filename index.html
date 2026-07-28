@@ -180,16 +180,20 @@
   .cs-group-title{text-align:center;}
   .cs-stat-grid-4{grid-template-columns:repeat(4,1fr);}
   @media(max-width:700px){ .cs-stat-grid-4{grid-template-columns:repeat(2,1fr);} }
-  /* Colour-code each metric so Revenue/Cost/Margin/Margin % read at a glance. */
+  /* Colour-code each metric with soft pastel tints — Revenue/Cost/Margin/Margin % read at a
+     glance without any single box clashing as a harsh solid block. */
+  .cs-stat.m-rev{background:var(--live-soft) !important;}
   .cs-stat.m-rev .l, .cs-stat.m-rev .v{color:var(--live);}
+  .cs-stat.m-cost{background:var(--delay-soft) !important;}
   .cs-stat.m-cost .l, .cs-stat.m-cost .v{color:var(--delay);}
+  .cs-stat.m-margin{background:var(--accent-soft) !important;}
   .cs-stat.m-margin .l, .cs-stat.m-margin .v{color:var(--accent);}
   .cs-stat.m-rev .cs-cr{color:var(--live); opacity:.75;}
   .cs-stat.m-cost .cs-cr{color:var(--delay); opacity:.75;}
   .cs-stat.m-margin .cs-cr{color:var(--accent); opacity:.75;}
-  .cs-stat.m-marginpct{background:var(--accent) !important;}
-  .cs-stat.m-marginpct .l{color:rgba(255,255,255,.8);}
-  .cs-stat.m-marginpct .v{color:#fff; font-size:21px;}
+  .cs-stat.m-marginpct{background:var(--accent-soft) !important; border:1.5px solid rgba(109,94,240,.3) !important;}
+  .cs-stat.m-marginpct .l{color:var(--accent-dark); opacity:.8;}
+  .cs-stat.m-marginpct .v{color:var(--accent-dark); font-size:21px;}
   .cs-groups{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:16px;}
   .cs-empty{padding:70px 20px; text-align:center; color:var(--text-faint); font-family:'Lexend', sans-serif; font-size:13.5px;}
   .cs-groups-pair{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:16px;}
@@ -266,6 +270,15 @@
         <label>As of</label>
         <input type="date" id="asOfDate">
       </div>
+      <div class="tf-group" id="yearGroupChat" style="display:none;">
+        <label>FY Year</label>
+        <select id="yearSelChat"></select>
+      </div>
+      <div class="tf-group" id="monthGroupChat" style="display:none; position:relative;">
+        <label>Month</label>
+        <button type="button" id="monthBtnChat" class="ms-btn">All months</button>
+        <div id="monthPanelChat" class="ms-panel" style="display:none;"></div>
+      </div>
       <div class="period-label" id="periodLabel"></div>
       <div class="period-stats" id="periodStats" style="grid-column:1/-1; width:100%;"></div>
     </div>
@@ -320,6 +333,15 @@
     <div class="timebar">
       <div class="tf-group"><label>View by</label><div class="seg" id="segViewRev"></div></div>
       <div class="tf-group"><label>As of</label><input type="date" id="asOfDateRev"></div>
+      <div class="tf-group" id="yearGroupRev" style="display:none;">
+        <label>FY Year</label>
+        <select id="yearSelRev"></select>
+      </div>
+      <div class="tf-group" id="monthGroupRev" style="display:none; position:relative;">
+        <label>Month</label>
+        <button type="button" id="monthBtnRev" class="ms-btn">All months</button>
+        <div id="monthPanelRev" class="ms-panel" style="display:none;"></div>
+      </div>
       <div class="period-label" id="periodLabelRev"></div>
     </div>
 
@@ -718,10 +740,15 @@ PAGES.forEach(p=>{
 });
 
 /* ---------------- Time filter state (shared logic per page) ---------------- */
-function makeTimeState(){ return { view:"Monthly", asOf:new Date() }; }
+function makeTimeState(){ return { view:"Monthly", asOf:new Date(), year:"All", months:new Set() }; }
 const timeChat = makeTimeState(), timeRev = makeTimeState();
 
 function periodBounds(ts){
+  if(ts.view==="Year"){
+    if(ts.year==="All") return { start:new Date(1900,0,1), end:new Date(2100,11,31,23,59,59,999) };
+    const y = +ts.year;
+    return { start:new Date(y,3,1), end:new Date(y+1,2,31,23,59,59,999) };
+  }
   const d = new Date(ts.asOf); d.setHours(0,0,0,0);
   let start, end;
   if(ts.view==="Daily"){ start=new Date(d); end=new Date(d); }
@@ -731,20 +758,87 @@ function periodBounds(ts){
   return {start,end};
 }
 function fmtD(d){ return d.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}); }
+// True unless a specific set of months has been chosen via the Year-mode multi-select — lets
+// "Year" view narrow to e.g. just Apr+Jul instead of only a contiguous date range.
+function inMonthSet(ts, d){ return !ts.months || ts.months.size===0 || ts.months.has(d.getMonth()+1); }
+const FY_MONTHS_ORDER = [["April",4],["May",5],["June",6],["July",7],["August",8],["September",9],["October",10],["November",11],["December",12],["January",1],["February",2],["March",3]];
+function fiscalYearsAvailable(){
+  const years = new Set();
+  COMMERCIALS.forEach(c=>{ if(c.dateOfLive) years.add(fiscalYear(c.dateOfLive)); });
+  CONSUMABLE.forEach(c=>{ if(c.month) years.add(fiscalYear(c.month)); });
+  return [...years].sort((a,b)=>b-a);
+}
+function monthBtnLabel(state){
+  const SHORT=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  if(state.months.size===0) return "All months";
+  const sorted=[...state.months].sort((a,b)=>a-b);
+  return sorted.length<=2 ? sorted.map(m=>SHORT[m-1]).join(", ") : `${sorted.length} months`;
+}
+function refreshYearMonthUI(prefix, state){
+  const yearSel = document.getElementById("yearSel"+prefix);
+  if(!yearSel) return;
+  const prevYear = yearSel.value || state.year;
+  const years = fiscalYearsAvailable();
+  yearSel.innerHTML = `<option value="All">All years</option>` + years.map(y=>`<option value="${y}">FY ${y}-${String(y+1).slice(-2)}</option>`).join("");
+  yearSel.value = (years.includes(+prevYear) || prevYear==="All") ? prevYear : "All";
+  state.year = yearSel.value;
+  const btn = document.getElementById("monthBtn"+prefix);
+  if(btn) btn.textContent = monthBtnLabel(state);
+}
+function setupYearMonthUI(prefix, state, onChange){
+  const yearSel = document.getElementById("yearSel"+prefix);
+  const monthBtn = document.getElementById("monthBtn"+prefix);
+  const monthPanel = document.getElementById("monthPanel"+prefix);
+  if(!yearSel || !monthBtn || !monthPanel) return;
+  yearSel.addEventListener("change", ()=>{ state.year = yearSel.value; onChange(); });
+  monthBtn.addEventListener("click", e=>{ e.stopPropagation(); monthPanel.style.display = monthPanel.style.display==="none" ? "block" : "none"; });
+  document.addEventListener("click", e=>{
+    if(monthPanel.style.display!=="none" && !monthPanel.contains(e.target) && e.target!==monthBtn){ monthPanel.style.display="none"; }
+  });
+  monthPanel.innerHTML = `<label class="ms-all"><input type="checkbox" class="ms-all-cb" checked> All months</label>` +
+    FY_MONTHS_ORDER.map(([m,num])=>`<label><input type="checkbox" class="ms-cb" value="${num}"> ${m}</label>`).join("");
+  const allCb = monthPanel.querySelector(".ms-all-cb");
+  allCb.addEventListener("change", e=>{
+    if(e.target.checked){ state.months.clear(); monthPanel.querySelectorAll(".ms-cb").forEach(cb=>cb.checked=false); monthBtn.textContent=monthBtnLabel(state); onChange(); }
+    else if(state.months.size===0){ e.target.checked = true; }
+  });
+  monthPanel.querySelectorAll(".ms-cb").forEach(cb=>{
+    cb.addEventListener("change", ()=>{
+      if(cb.checked) state.months.add(+cb.value); else state.months.delete(+cb.value);
+      allCb.checked = state.months.size===0;
+      monthBtn.textContent = monthBtnLabel(state);
+      onChange();
+    });
+  });
+}
 
-function initTimebar(segId, dateId, labelId, state, onChange){
+function initTimebar(segId, dateId, labelId, state, onChange, yearGroupId, monthGroupId){
   const seg = document.getElementById(segId);
-  ["Daily","Weekly","Monthly"].forEach(v=>{
+  const dateInput0 = document.getElementById(dateId);
+  const dateGroup = dateInput0.parentElement;
+  const yearGroup = yearGroupId ? document.getElementById(yearGroupId) : null;
+  const monthGroup = monthGroupId ? document.getElementById(monthGroupId) : null;
+  ["Daily","Weekly","Monthly","Year"].forEach(v=>{
     const b=document.createElement("button"); b.textContent=v; b.className=v===state.view?"active":"";
-    b.addEventListener("click", ()=>{ state.view=v; [...seg.children].forEach(c=>c.classList.toggle("active", c===b)); onChange(); });
+    b.addEventListener("click", ()=>{
+      state.view=v;
+      [...seg.children].forEach(c=>c.classList.toggle("active", c===b));
+      const isYear = v==="Year";
+      dateGroup.style.display = isYear ? "none" : "";
+      if(yearGroup) yearGroup.style.display = isYear ? "" : "none";
+      if(monthGroup) monthGroup.style.display = isYear ? "" : "none";
+      onChange();
+    });
     seg.appendChild(b);
   });
   const dateInput = document.getElementById(dateId);
   dateInput.valueAsDate = state.asOf;
   dateInput.addEventListener("change", ()=>{ if(dateInput.valueAsDate){ state.asOf = dateInput.valueAsDate; onChange(); } });
 }
-initTimebar("segView","asOfDate","periodLabel", timeChat, ()=>renderChatbots());
-initTimebar("segViewRev","asOfDateRev","periodLabelRev", timeRev, ()=>renderRevenue());
+initTimebar("segView","asOfDate","periodLabel", timeChat, ()=>renderChatbots(), "yearGroupChat","monthGroupChat");
+initTimebar("segViewRev","asOfDateRev","periodLabelRev", timeRev, ()=>renderRevenue(), "yearGroupRev","monthGroupRev");
+setupYearMonthUI("Chat", timeChat, ()=>renderChatbots());
+setupYearMonthUI("Rev", timeRev, ()=>renderRevenue());
 
 /* ---------------- Filter state (Chatbots page) ---------------- */
 const filters = { stage:"All", type:"All", vendor:null, aiEnabled:"All" };
@@ -783,9 +877,12 @@ function renderChatbots(){
   });
 
   // period stats
+  refreshYearMonthUI("Chat", timeChat);
   const {start,end} = periodBounds(timeChat);
-  document.getElementById("periodLabel").textContent = fmtD(start) + (timeChat.view==="Daily" ? "" : " – " + fmtD(end));
-  const inPeriod = d => d && d>=start && d<=end;
+  document.getElementById("periodLabel").textContent = timeChat.view==="Year"
+    ? (timeChat.year==="All" ? "All years" : `FY ${timeChat.year}-${String(+timeChat.year+1).slice(-2)}`) + " · " + monthBtnLabel(timeChat)
+    : fmtD(start) + (timeChat.view==="Daily" ? "" : " – " + fmtD(end));
+  const inPeriod = d => d && d>=start && d<=end && inMonthSet(timeChat, d);
   const pstats = [
     {l:"Briefs Received", n:PROJECTS.filter(p=>inPeriod(p.dates.brief)).length},
     {l:"Commercials Shared", n:PROJECTS.filter(p=>inPeriod(p.dates.comm)).length},
@@ -909,9 +1006,12 @@ function setRevType(t){ revFilter.type = (revFilter.type===t)?null:t; renderReve
 function typeOfCommercial(c){ const proj=PROJECTS.find(p=>p.chatbot===c.chatbot); return proj?proj.type:"Other"; }
 
 function renderRevenue(){
+  refreshYearMonthUI("Rev", timeRev);
   const {start,end} = periodBounds(timeRev);
-  document.getElementById("periodLabelRev").textContent = fmtD(start) + (timeRev.view==="Daily" ? "" : " – " + fmtD(end));
-  const inPeriod = COMMERCIALS.filter(c => c.dateOfLive && c.dateOfLive>=start && c.dateOfLive<=end);
+  document.getElementById("periodLabelRev").textContent = timeRev.view==="Year"
+    ? (timeRev.year==="All" ? "All years" : `FY ${timeRev.year}-${String(+timeRev.year+1).slice(-2)}`) + " · " + monthBtnLabel(timeRev)
+    : fmtD(start) + (timeRev.view==="Daily" ? "" : " – " + fmtD(end));
+  const inPeriod = COMMERCIALS.filter(c => c.dateOfLive && c.dateOfLive>=start && c.dateOfLive<=end && inMonthSet(timeRev, c.dateOfLive));
   const filteredPeriod = inPeriod.filter(c =>
     (!revFilter.vendor || c.vendor===revFilter.vendor) &&
     (!revFilter.type || typeOfCommercial(c)===revFilter.type)

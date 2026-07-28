@@ -810,6 +810,7 @@ PAGES.forEach(p=>{
 /* ---------------- Time filter state (shared logic per page) ---------------- */
 function makeTimeState(){ return { view:"Monthly", asOf:new Date(), year:"All", months:new Set() }; }
 const timeChat = makeTimeState(), timeRev = makeTimeState(), timeCons = makeTimeState();
+timeCons.view = "Year"; // Consumable opens on yearly totals first, since the current month is often still empty
 
 function periodBounds(ts){
   if(ts.view==="Year"){
@@ -886,26 +887,30 @@ function initTimebar(segId, dateId, labelId, state, onChange, yearGroupId, month
   const dateGroup = dateInput0.parentElement;
   const yearGroup = yearGroupId ? document.getElementById(yearGroupId) : null;
   const monthGroup = monthGroupId ? document.getElementById(monthGroupId) : null;
+  const syncGroups = (v)=>{
+    const isYear = v==="Year";
+    dateGroup.style.display = isYear ? "none" : "";
+    if(yearGroup) yearGroup.style.display = isYear ? "" : "none";
+    if(monthGroup) monthGroup.style.display = isYear ? "" : "none";
+  };
   (views || ["Daily","Weekly","Monthly","Year"]).forEach(v=>{
     const b=document.createElement("button"); b.textContent=v; b.className=v===state.view?"active":"";
     b.addEventListener("click", ()=>{
       state.view=v;
       [...seg.children].forEach(c=>c.classList.toggle("active", c===b));
-      const isYear = v==="Year";
-      dateGroup.style.display = isYear ? "none" : "";
-      if(yearGroup) yearGroup.style.display = isYear ? "" : "none";
-      if(monthGroup) monthGroup.style.display = isYear ? "" : "none";
+      syncGroups(v);
       onChange();
     });
     seg.appendChild(b);
   });
+  syncGroups(state.view); // match the group visibility to whatever view this state already starts on
   const dateInput = document.getElementById(dateId);
   dateInput.valueAsDate = state.asOf;
   dateInput.addEventListener("change", ()=>{ if(dateInput.valueAsDate){ state.asOf = dateInput.valueAsDate; onChange(); } });
 }
 initTimebar("segView","asOfDate","periodLabel", timeChat, ()=>renderChatbots(), "yearGroupChat","monthGroupChat");
 initTimebar("segViewRev","asOfDateRev","periodLabelRev", timeRev, ()=>renderRevenue(), "yearGroupRev","monthGroupRev");
-initTimebar("segViewCons","asOfDateCons","periodLabelCons", timeCons, ()=>renderConsumable(), "yearGroupCons","monthGroupCons", ["Monthly","Year"]);
+initTimebar("segViewCons","asOfDateCons","periodLabelCons", timeCons, ()=>renderConsumable(), "yearGroupCons","monthGroupCons", ["Year","Monthly"]);
 setupYearMonthUI("Chat", timeChat, ()=>renderChatbots());
 setupYearMonthUI("Rev", timeRev, ()=>renderRevenue());
 setupYearMonthUI("Cons", timeCons, ()=>renderConsumable());

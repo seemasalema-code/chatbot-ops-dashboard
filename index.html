@@ -551,6 +551,16 @@
           </div>
         </aside>
       </div>
+
+      <section id="recordsCs" style="margin-top:16px;">
+        <div class="records-head">
+          <div class="records-title"><h2>Clients in Period <small>click a Monthly Breakdown row to drill into that month</small></h2><div class="breadcrumbs" id="breadcrumbsCs"></div></div>
+          <div class="rec-count" id="recCountCs"></div>
+        </div>
+        <div class="records-body">
+          <table class="data"><thead><tr><th>Client</th><th>Industry</th><th style="text-align:right">Revenue</th><th style="text-align:right">Cost</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="csRecordsBody"></tbody></table>
+        </div>
+      </section>
     </div>
   </section>
 
@@ -580,7 +590,7 @@ const STAGE_COLOR = {"Discovery":"#7C3AED","Demo Bot":"#C084FC","Quotes Given":"
   "Live":"#16A34A","On Hold":"#D97706","Lost":"#DC2626","Other":"#9AA1C0"};
 const STAGE_FALLBACK_PALETTE = ["#DB2777","#0891B2","#65A30D","#EA580C","#4F46E5"];
 
-const TYPE_ORDER = ["RCS","WhatsApp","RCS - S2C","Agentic AI","Voice Bot","Helpdesk","WhatsApp Calling","Other"];
+const TYPE_ORDER = ["RCS","WhatsApp","RCS - S2C","Other"];
 
 function toStage(rawStatus){ const s=(rawStatus||"").trim(); return s || "Other"; }
 function toType(rawPlatform){ const t=(rawPlatform||"").trim(); return t || "Other"; }
@@ -1047,8 +1057,31 @@ setupYearMonthUI("Cons", timeCons, ()=>renderConsumable());
 
 /* ---------------- Filter state (Chatbots page) ---------------- */
 const filters = { stage:"All", type:"All", vendor:null, aiEnabled:"All", industries: new Set() };
+// Whether the FY Year / Month selection actually narrows anything — the default "All years,
+// All months" state should behave exactly as before (every project shown, including ones with
+// no milestone dates recorded yet), so date-based filtering only kicks in once the user actively
+// picks a year or month.
+function timeFilterActive(ts){ return ts.view!=="Year" || ts.year!=="All" || ts.months.size>0; }
+// A project "matches" a time window if ANY of its 5 milestone dates (brief/comm/dev/test/live)
+// falls inside it — a project can legitimately show up under whichever stage it reached during
+// that period.
+function projectMatchesTime(p, ts, start, end){
+  if(!timeFilterActive(ts)) return true;
+  const dates = p.dates || {};
+  return Object.values(dates).some(d => d && d>=start && d<=end && inMonthSet(ts, d));
+}
+// Base set for the "Filter Records" zone (Stage/Type/AI/Vendor chip counts, donut) — scoped by
+// the FY Year and Industry filters (the two dropdowns above the chip zone) but NOT by the chips
+// themselves, so every chip can still show how many records it would match.
+function projectsInScope(){
+  const {start,end} = periodBounds(timeChat);
+  return PROJECTS.filter(p => projectMatchesTime(p, timeChat, start, end) &&
+    (filters.industries.size===0 || filters.industries.has(industryOf(p))));
+}
 function filteredProjects(){
+  const {start,end} = periodBounds(timeChat);
   return PROJECTS.filter(p =>
+    projectMatchesTime(p, timeChat, start, end) &&
     (filters.stage==="All" || p.stage===filters.stage) &&
     (filters.type==="All" || p.type===filters.type) &&
     (!filters.vendor || p.vendor===filters.vendor) &&
@@ -1124,13 +1157,20 @@ function renderChatbots(){
   const typesPresent = [...new Set(PROJECTS.map(p=>p.type))];
   const effTypeOrder = [...TYPE_ORDER.filter(t=>t!=="Other"), ...typesPresent.filter(t=>t!=="Other" && !TYPE_ORDER.includes(t)), "Other"];
 
+  // Everything in the "Filter Records" zone below (donut, stage/type tabs, AI + vendor chips) is
+  // scoped by the FY Year and Industry filters above it, so picking a year or industry visibly
+  // narrows these counts — while each chip's own dimension is left out of its own count so users
+  // can still see/click every option.
+  const scoped = projectsInScope();
+  const scopedTotal = scoped.length;
+
   // donut + legend (by stage)
-  const byStage={}; effStageOrder.forEach(s=>byStage[s]=PROJECTS.filter(p=>p.stage===s).length);
+  const byStage={}; effStageOrder.forEach(s=>byStage[s]=scoped.filter(p=>p.stage===s).length);
   const presentStages = effStageOrder.filter(s=>byStage[s]>0);
   const donutSeg=document.getElementById("donutSegments"); donutSeg.innerHTML="";
   const R=50, CIRC=2*Math.PI*R; let offset=0;
   presentStages.forEach(s=>{
-    const frac = total? byStage[s]/total : 0; const len=frac*CIRC;
+    const frac = scopedTotal? byStage[s]/scopedTotal : 0; const len=frac*CIRC;
     const c=document.createElementNS("http://www.w3.org/2000/svg","circle");
     c.setAttribute("cx","60"); c.setAttribute("cy","60"); c.setAttribute("r",R); c.setAttribute("fill","none");
     c.setAttribute("stroke", stageColor(s)); c.setAttribute("stroke-width","16");
@@ -1138,7 +1178,7 @@ function renderChatbots(){
     c.style.cursor="pointer"; c.addEventListener("click", ()=>setStage(s));
     donutSeg.appendChild(c); offset+=len;
   });
-  document.getElementById("donutTotal").textContent = total;
+  document.getElementById("donutTotal").textContent = scopedTotal;
   const legend=document.getElementById("legend"); legend.innerHTML="";
   presentStages.forEach(s=>{
     const item=document.createElement("div"); item.className="legend-item";
@@ -1149,7 +1189,7 @@ function renderChatbots(){
   // stage tabs
   const stageTabbar=document.getElementById("stageTabbar"); stageTabbar.innerHTML="";
   const allStageTab=document.createElement("div"); allStageTab.className="tab"+(filters.stage==="All"?" active":"");
-  allStageTab.style.setProperty("--tab-color","var(--accent)"); allStageTab.innerHTML=`All <span class="n">${total}</span>`;
+  allStageTab.style.setProperty("--tab-color","var(--accent)"); allStageTab.innerHTML=`All <span class="n">${scopedTotal}</span>`;
   allStageTab.addEventListener("click", ()=>setStage("All")); stageTabbar.appendChild(allStageTab);
   effStageOrder.forEach(s=>{
     const tab=document.createElement("div"); tab.className="tab"+(filters.stage===s?" active":"");
@@ -1158,10 +1198,10 @@ function renderChatbots(){
   });
 
   // type tabs
-  const byType={}; effTypeOrder.forEach(t=>byType[t]=PROJECTS.filter(p=>p.type===t).length);
+  const byType={}; effTypeOrder.forEach(t=>byType[t]=scoped.filter(p=>p.type===t).length);
   const typeTabbar=document.getElementById("typeTabbar"); typeTabbar.innerHTML="";
   const allTypeTab=document.createElement("div"); allTypeTab.className="tab"+(filters.type==="All"?" active":"");
-  allTypeTab.style.setProperty("--tab-color","var(--accent)"); allTypeTab.innerHTML=`All <span class="n">${total}</span>`;
+  allTypeTab.style.setProperty("--tab-color","var(--accent)"); allTypeTab.innerHTML=`All <span class="n">${scopedTotal}</span>`;
   allTypeTab.addEventListener("click", ()=>setType("All")); typeTabbar.appendChild(allTypeTab);
   effTypeOrder.forEach(t=>{
     const tab=document.createElement("div"); tab.className="tab"+(filters.type===t?" active":"");
@@ -1170,7 +1210,7 @@ function renderChatbots(){
   });
 
   // AI enabled chips
-  const byAI = { All: total, Yes: PROJECTS.filter(p=>p.aiEnabled==="Yes").length, No: PROJECTS.filter(p=>p.aiEnabled==="No").length };
+  const byAI = { All: scopedTotal, Yes: scoped.filter(p=>p.aiEnabled==="Yes").length, No: scoped.filter(p=>p.aiEnabled==="No").length };
   const aiChips=document.getElementById("aiEnabledChips"); aiChips.innerHTML="";
   ["All","Yes","No"].forEach(v=>{
     const chip=document.createElement("div"); chip.className="tab"+(filters.aiEnabled===v?" active":"");
@@ -1179,7 +1219,7 @@ function renderChatbots(){
   });
 
   // vendor chips
-  const byVendor={}; [...new Set(PROJECTS.map(p=>p.vendor).filter(Boolean))].forEach(v=>byVendor[v]=PROJECTS.filter(p=>p.vendor===v).length);
+  const byVendor={}; [...new Set(PROJECTS.map(p=>p.vendor).filter(Boolean))].forEach(v=>byVendor[v]=scoped.filter(p=>p.vendor===v).length);
   const vendorChips=document.getElementById("vendorChips"); vendorChips.innerHTML="";
   Object.keys(byVendor).forEach(v=>{
     const chip=document.createElement("div"); chip.className="chip"+(filters.vendor===v?" active":"");
@@ -1251,9 +1291,9 @@ function renderRevenue(){
 
   const kRow=document.getElementById("revKpiRow"); kRow.innerHTML="";
   [
-    {label:"Revenue", value:fmtINR(totalRev), hint:timeRev.view+" view", color:"var(--live)"},
-    {label:"Cost", value:fmtINR(totalCost), hint:timeRev.view+" view", color:"var(--build)"},
-    {label:"Margin", value:fmtINR(totalMargin), hint:"margin % "+marginPct+"%", color:"var(--accent)"},
+    {label:"Revenue", value:fmtCompact(totalRev), hint:timeRev.view+" view", color:"var(--live)"},
+    {label:"Cost", value:fmtCompact(totalCost), hint:timeRev.view+" view", color:"var(--build)"},
+    {label:"Margin", value:fmtCompact(totalMargin), hint:"margin % "+marginPct+"%", color:"var(--accent)"},
     {label:"Live Projects", value:inPeriod.length, hint:"in selected period", color:"var(--text)"},
   ].forEach(k=>{
     const el=document.createElement("div"); el.className="kpi"; el.style.setProperty("--kpi-color",k.color);
@@ -1347,6 +1387,10 @@ function renderMonthlyTrend(){
 /* ---------------- Render: Client Summary page ---------------- */
 const csFilter = { year:"All", months:new Set(), clients:new Set(), industries: new Set() };
 let csBreakdownView = "total";
+// Set when a row in the Monthly Breakdown table is clicked, to drill the new client-level
+// Records list (below) down into just that one month. Cleared via the ✕ on its breadcrumb or
+// the "Clear filters" button.
+let csSelectedMonthKey = null;
 // Client Summary operates per-client (not per-row), so the Industry filter narrows the client
 // universe via CLIENT_INDUSTRY rather than filtering individual Commercials/Consumable rows.
 // An explicit client selection is intersected with the industry-matching clients, so picking
@@ -1504,7 +1548,7 @@ document.getElementById("csClientSearch").addEventListener("input", e=>{
 });
 
 document.getElementById("csClearBtn").addEventListener("click", ()=>{
-  csFilter.clients.clear(); csFilter.year="All"; csFilter.months.clear(); csFilter.industries.clear();
+  csFilter.clients.clear(); csFilter.year="All"; csFilter.months.clear(); csFilter.industries.clear(); csSelectedMonthKey=null;
   document.querySelectorAll(".cs-client-cb").forEach(cb=>cb.checked=false);
   const clientAll = document.getElementById("csClientAll"); if(clientAll) clientAll.checked=true;
   updateCsClientBtn();
@@ -1543,11 +1587,75 @@ function renderCsBreakdownTable(yearRows){
     const momText = momPct===null ? "—" : (momPct>=0?"▲ ":"▼ ")+Math.abs(momPct).toFixed(1)+"%";
     const momClass = momPct===null ? "trend-flat" : (momPct>=0?"trend-up":"trend-down");
     const tr=document.createElement("tr");
+    tr.className = csSelectedMonthKey===r.key ? "active-row" : "";
+    tr.style.cursor = "pointer";
+    tr.title = "Click to see which clients contributed in this month";
     tr.innerHTML = `<td>${r.label}</td>
       <td class="num">${fmtCompact(r[revKey])}</td><td class="num">${fmtCompact(r[costKey])}</td><td class="num">${fmtCompact(r[marginKey])}</td>
       <td class="num ${momClass}">${momText}</td>`;
+    tr.addEventListener("click", ()=>{
+      csSelectedMonthKey = (csSelectedMonthKey===r.key) ? null : r.key;
+      renderCsBreakdownTable(window.__csYearRows || []);
+      renderCsRecords();
+    });
     tbody.appendChild(tr);
   });
+}
+
+// Client-level breakdown for the currently scoped filters (Year/Month/Client/Industry), or — if a
+// row in the Monthly Breakdown table was clicked — for that single month only. Mirrors the
+// "Records" list already present on the other three tabs, so Client Summary can also answer
+// "which clients made up this revenue and margin".
+function csDateInScope(d){
+  if(!d) return false;
+  if(csSelectedMonthKey) return monthKey(d)===csSelectedMonthKey;
+  if(csFilter.year!=="All" && fiscalYear(d)!==+csFilter.year) return false;
+  if(csFilter.months.size>0 && !csFilter.months.has(d.getMonth()+1)) return false;
+  return true;
+}
+function buildCsClientRecords(){
+  const selectedClients = effectiveCsClients();
+  const isUnfiltered = csFilter.clients.size===0 && csFilter.industries.size===0;
+  const map = {};
+  const add=(client,rev,cost)=>{ if(!map[client]) map[client]={revenue:0,cost:0}; map[client].revenue+=rev; map[client].cost+=cost; };
+  COMMERCIALS.forEach(c=>{
+    if((!isUnfiltered && !selectedClients.has(c.client)) || !csDateInScope(c.dateOfLive)) return;
+    add(c.client, c.revenue, c.cost);
+  });
+  CONSUMABLE.forEach(c=>{
+    if((!isUnfiltered && !selectedClients.has(c.client)) || !csDateInScope(c.month)) return;
+    add(c.client, c.revenue, c.cost);
+  });
+  return Object.keys(map).map(cl=>{
+    const d=map[cl]; const ci=CLIENT_INDUSTRY[cl]||{};
+    return { client:cl, revenue:d.revenue, cost:d.cost, margin:d.revenue-d.cost, industry: ci.industry || "Other" };
+  }).sort((a,b)=>b.revenue-a.revenue);
+}
+function renderCsRecords(){
+  const body = document.getElementById("csRecordsBody");
+  if(!body) return; // guards against running before the section is in the DOM
+  const rows = buildCsClientRecords();
+  body.innerHTML = "";
+  if(rows.length===0){
+    body.innerHTML = `<tr><td colspan="6"><div class="empty-state">No records match this filter.</div></td></tr>`;
+  } else rows.forEach(r=>{
+    const pct = r.revenue ? ((r.margin/r.revenue)*100).toFixed(1) : "0.0";
+    const tr=document.createElement("tr");
+    tr.innerHTML = `<td>${r.client}</td><td>${r.industry}</td><td class="num">${fmtINR(r.revenue)}</td>
+      <td class="num">${fmtINR(r.cost)}</td><td class="num">${fmtINR(r.margin)}</td><td class="num">${pct}%</td>`;
+    body.appendChild(tr);
+  });
+  const countEl = document.getElementById("recCountCs");
+  if(countEl) countEl.textContent = rows.length + (rows.length===1?" client":" clients");
+  const crumbs = document.getElementById("breadcrumbsCs");
+  if(crumbs){
+    crumbs.innerHTML = "";
+    if(csSelectedMonthKey){
+      const match = (window.__csYearRows||[]).find(r=>r.key===csSelectedMonthKey);
+      const label = match ? match.label : csSelectedMonthKey;
+      crumbs.appendChild(makeCrumb("Month: "+label, ()=>{ csSelectedMonthKey=null; renderCsBreakdownTable(window.__csYearRows||[]); renderCsRecords(); }));
+    }
+  }
 }
 
 function renderClientSummary(){
@@ -1567,20 +1675,21 @@ function renderClientSummary(){
   const totRev=commRev+consRev, totCost=commCost+consCost, totMargin=totRev-totCost;
   const marginPct = (margin,rev) => rev ? (margin/rev*100).toFixed(1)+"%" : "—";
 
-  document.getElementById("csCommRev").innerHTML = fmtINRCr(commRev);
-  document.getElementById("csCommCost").innerHTML = fmtINRCr(commCost);
-  document.getElementById("csCommMargin").innerHTML = fmtINRCr(commMargin);
+  document.getElementById("csCommRev").innerHTML = fmtCompact(commRev);
+  document.getElementById("csCommCost").innerHTML = fmtCompact(commCost);
+  document.getElementById("csCommMargin").innerHTML = fmtCompact(commMargin);
   document.getElementById("csCommMarginPct").textContent = marginPct(commMargin, commRev);
-  document.getElementById("csConsRev").innerHTML = fmtINRCr(consRev);
-  document.getElementById("csConsCost").innerHTML = fmtINRCr(consCost);
-  document.getElementById("csConsMargin").innerHTML = fmtINRCr(consMargin);
+  document.getElementById("csConsRev").innerHTML = fmtCompact(consRev);
+  document.getElementById("csConsCost").innerHTML = fmtCompact(consCost);
+  document.getElementById("csConsMargin").innerHTML = fmtCompact(consMargin);
   document.getElementById("csConsMarginPct").textContent = marginPct(consMargin, consRev);
-  document.getElementById("csTotRev").innerHTML = fmtINRCr(totRev);
-  document.getElementById("csTotCost").innerHTML = fmtINRCr(totCost);
-  document.getElementById("csTotMargin").innerHTML = fmtINRCr(totMargin);
+  document.getElementById("csTotRev").innerHTML = fmtCompact(totRev);
+  document.getElementById("csTotCost").innerHTML = fmtCompact(totCost);
+  document.getElementById("csTotMargin").innerHTML = fmtCompact(totMargin);
   document.getElementById("csTotMarginPct").textContent = marginPct(totMargin, totRev);
 
   renderCsBreakdownTable(yearRows);
+  renderCsRecords();
 
   // Growth trend — chronological bar chart of Total Revenue for the selected Year (or all history),
   // colored green when a month is up on the previous month and red when it's down.
@@ -1634,20 +1743,23 @@ function renderConsumable(){
     ? (timeCons.year==="All" ? "All years" : `FY ${timeCons.year}-${String(+timeCons.year+1).slice(-2)}`) + " · " + monthBtnLabel(timeCons)
     : fmtD(start) + (timeCons.view==="Daily" ? "" : " – " + fmtD(end));
   const inPeriod = CONSUMABLE.filter(c => c.month && c.month>=start && c.month<=end && inMonthSet(timeCons, c.month));
-  const filteredPeriod = inPeriod.filter(c => (!consFilter.client || c.client===consFilter.client) &&
-    (consFilter.industries.size===0 || consFilter.industries.has(industryOf(c))));
+  // Industry-scoped (but not yet client-scoped) view — used for the KPI cards and the by-Client
+  // breakdown table so the Industry filter is visibly reflected everywhere in this tab, while still
+  // letting the by-Client table show every client in that industry so you can click to pick one.
+  const industryScoped = inPeriod.filter(c => consFilter.industries.size===0 || consFilter.industries.has(industryOf(c)));
+  const filteredPeriod = industryScoped.filter(c => (!consFilter.client || c.client===consFilter.client));
 
-  const totalRev = inPeriod.reduce((a,r)=>a+r.revenue,0);
-  const totalCost = inPeriod.reduce((a,r)=>a+r.cost,0);
+  const totalRev = industryScoped.reduce((a,r)=>a+r.revenue,0);
+  const totalCost = industryScoped.reduce((a,r)=>a+r.cost,0);
   const totalMargin = totalRev-totalCost;
   const marginPct = totalRev ? ((totalMargin/totalRev)*100).toFixed(1) : "0.0";
 
   const kRow=document.getElementById("consKpiRow"); kRow.innerHTML="";
   [
-    {label:"Revenue", value:fmtINR(totalRev), hint:timeCons.view+" view", color:"var(--live)"},
-    {label:"Cost", value:fmtINR(totalCost), hint:timeCons.view+" view", color:"var(--delay)"},
-    {label:"Margin", value:fmtINR(totalMargin), hint:"margin % "+marginPct+"%", color:"var(--cs-teal)"},
-    {label:"Billing Records", value:inPeriod.length, hint:"in selected period", color:"var(--text)"},
+    {label:"Revenue", value:fmtCompact(totalRev), hint:timeCons.view+" view", color:"var(--live)"},
+    {label:"Cost", value:fmtCompact(totalCost), hint:timeCons.view+" view", color:"var(--delay)"},
+    {label:"Margin", value:fmtCompact(totalMargin), hint:"margin % "+marginPct+"%", color:"var(--cs-teal)"},
+    {label:"Billing Records", value:industryScoped.length, hint:"in selected period", color:"var(--text)"},
   ].forEach(k=>{
     const el=document.createElement("div"); el.className="kpi"; el.style.setProperty("--kpi-color",k.color);
     el.innerHTML=`<div class="label">${k.label}</div><div class="value">${k.value}</div><div class="hint">${k.hint}</div>`;
@@ -1655,7 +1767,7 @@ function renderConsumable(){
   });
 
   const byClient={};
-  inPeriod.forEach(c=>{ if(!byClient[c.client]) byClient[c.client]={revenue:0,cost:0,margin:0}; byClient[c.client].revenue+=c.revenue; byClient[c.client].cost+=c.cost; byClient[c.client].margin+=c.margin; });
+  industryScoped.forEach(c=>{ if(!byClient[c.client]) byClient[c.client]={revenue:0,cost:0,margin:0}; byClient[c.client].revenue+=c.revenue; byClient[c.client].cost+=c.cost; byClient[c.client].margin+=c.margin; });
   const consByClient=document.getElementById("consByClient"); consByClient.innerHTML="";
   const clientKeys = Object.keys(byClient).sort((a,b)=>byClient[b].revenue-byClient[a].revenue);
   clientKeys.forEach(cl=>{

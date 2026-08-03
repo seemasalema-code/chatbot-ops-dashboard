@@ -303,6 +303,11 @@
         <button type="button" id="monthBtnChat" class="ms-btn">All months</button>
         <div id="monthPanelChat" class="ms-panel" style="display:none;"></div>
       </div>
+      <div class="tf-group" style="position:relative;">
+        <label>Industry</label>
+        <button type="button" id="industryBtnChat" class="ms-btn">All industries</button>
+        <div id="industryPanelChat" class="ms-panel" style="display:none;"></div>
+      </div>
       <div class="period-label" id="periodLabel"></div>
       <div class="period-stats" id="periodStats" style="grid-column:1/-1; width:100%;"></div>
     </div>
@@ -366,6 +371,11 @@
         <button type="button" id="monthBtnRev" class="ms-btn">All months</button>
         <div id="monthPanelRev" class="ms-panel" style="display:none;"></div>
       </div>
+      <div class="tf-group" style="position:relative;">
+        <label>Industry</label>
+        <button type="button" id="industryBtnRev" class="ms-btn">All industries</button>
+        <div id="industryPanelRev" class="ms-panel" style="display:none;"></div>
+      </div>
       <div class="period-label" id="periodLabelRev"></div>
     </div>
 
@@ -414,6 +424,11 @@
         <button type="button" id="monthBtnCons" class="ms-btn">All months</button>
         <div id="monthPanelCons" class="ms-panel" style="display:none;"></div>
       </div>
+      <div class="tf-group" style="position:relative;">
+        <label>Industry</label>
+        <button type="button" id="industryBtnCons" class="ms-btn">All industries</button>
+        <div id="industryPanelCons" class="ms-panel" style="display:none;"></div>
+      </div>
       <div class="period-label" id="periodLabelCons"></div>
     </div>
 
@@ -461,6 +476,11 @@
           <label class="ms-all"><input type="checkbox" id="csClientAll" checked> All clients</label>
           <div id="csClientList"></div>
         </div>
+      </div>
+      <div class="tf-group" style="position:relative;">
+        <label>Industry</label>
+        <button type="button" id="industryBtnCs" class="ms-btn">All industries</button>
+        <div id="industryPanelCs" class="ms-panel" style="display:none;"></div>
       </div>
       <button id="csClearBtn" style="border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-family:'Lexend',sans-serif; font-weight:600; font-size:12px; padding:8px 14px; border-radius:20px; cursor:pointer;">Clear</button>
     </div>
@@ -592,6 +612,8 @@ let DELAYED_COUNT = 0;
 let COMMERCIALS = []; // {client, chatbot, vendor, dateOfLive(Date|null), revenue, cost, margin} — one row per chatbot per month, sourced from the "Chatbot R&M" sheet (dateOfLive here means "month of this row")
 let CONSUMABLE = []; // {client, month(Date|null), revenue, cost, margin}
 let CLIENT_NAMES = []; // union of Client List sheet + every client name seen in Projects/Commercials/Consumable
+let CLIENT_INDUSTRY = {}; // client name -> {industry, subIndustry}, sourced from Client List sheet (+ fallback from any row's own Industry column)
+let INDUSTRIES = []; // sorted distinct list of all Industry values seen, for the Industry filter UI
 let usingLiveData = false;
 let lastCsvHash = null;
 
@@ -691,8 +713,15 @@ async function syncData(){
     // project/bot name, unique per row). Some header cells' label text gets stripped by
     // the Sheets export when that cell has a date/number format applied, so name-based lookup
     // is unreliable here — address columns by position instead.
-    const cClient=0, cChatbot=1, cPlatform=3, cAIEnabled=4, cVendor=5, cStatus=6, cDelay=18,
-          cBrief=7, cComm=8, cDev=11, cTest=12, cActualLive=14, cDaysToGo=17;
+    // NOTE: Industry/Sub Industry were moved to sit right after Chatbot (before Sales Connect)
+    // in the sheet, which shifted every column below by +2 — updated to match.
+    const cClient=0, cChatbot=1, cPlatform=5, cAIEnabled=6, cVendor=7, cStatus=8, cDelay=20,
+          cBrief=9, cComm=10, cDev=13, cTest=14, cActualLive=16, cDaysToGo=19;
+    // Industry / Sub Industry are plain-text headers (no date/number format applied), so
+    // header-name lookup is reliable here even though the columns above use fixed positions.
+    const pHeaderRow = projRows[pHeaderIdx];
+    const cIndustry = pHeaderRow.findIndex(h=>(h||"").trim()==="Industry");
+    const cSubIndustry = pHeaderRow.findIndex(h=>(h||"").trim()==="Sub Industry");
     const newProjects = []; let delayed = 0;
     for(let i=pHeaderIdx+1;i<projRows.length;i++){
       const r = projRows[i]; const chatbot = (r[cChatbot]||"").trim();
@@ -704,7 +733,9 @@ async function syncData(){
         aiEnabled: (r[cAIEnabled]||"").trim(),
         stage: toStage(status), type: toType(platform),
         dates:{ brief:parseDate(r[cBrief]), comm:parseDate(r[cComm]), dev:parseDate(r[cDev]), test:parseDate(r[cTest]), liveDate:parseDate(r[cActualLive]) },
-        daysToGoLive: (r[cDaysToGo]||"").toString().trim()
+        daysToGoLive: (r[cDaysToGo]||"").toString().trim(),
+        industry: cIndustry>-1 ? (r[cIndustry]||"").trim() : "",
+        subIndustry: cSubIndustry>-1 ? (r[cSubIndustry]||"").trim() : ""
       });
       if(cDelay!==undefined && (r[cDelay]||"").trim().startsWith("Delayed")) delayed++;
     }
@@ -720,13 +751,17 @@ async function syncData(){
       // that's been live for 6 months contributes 6 rows here — that's what lets every date-range
       // filter below aggregate monthly instead of dumping the whole deal into one month.
       const kClient=0, kChatbot=1, kVendor=2, kMonth=3, kCost=16, kRev=25, kMargin=26;
+      const rmHeaderRow = rmRows[rmHeaderIdx];
+      const kIndustry = rmHeaderRow.findIndex(h=>(h||"").trim()==="Industry");
+      const kSubIndustry = rmHeaderRow.findIndex(h=>(h||"").trim()==="Sub Industry");
       const num = s => { const n = parseFloat((s||"0").toString().replace(/[₹,]/g,"")); return isNaN(n)?0:n; };
       for(let i=rmHeaderIdx+1;i<rmRows.length;i++){
         const r = rmRows[i]; const chatbot = (r[kChatbot]||"").trim();
         if(!chatbot) continue;
         const client = (r[kClient]||"").trim() || chatbot;
         newCommercials.push({ client, chatbot, vendor:(r[kVendor]||"").trim()||"Unassigned",
-          dateOfLive: parseDate(r[kMonth]), revenue:num(r[kRev]), cost:num(r[kCost]), margin:num(r[kMargin]) });
+          dateOfLive: parseDate(r[kMonth]), revenue:num(r[kRev]), cost:num(r[kCost]), margin:num(r[kMargin]),
+          industry: kIndustry>-1 ? (r[kIndustry]||"").trim() : "", subIndustry: kSubIndustry>-1 ? (r[kSubIndustry]||"").trim() : "" });
       }
     }
 
@@ -741,6 +776,11 @@ async function syncData(){
       const r = consRows[i];
       if((r[0]||"").toString().trim() && parseDate(r[1])){ consDataStart = i; break; }
     }
+    // Industry / Sub Industry were appended as columns F/G — located by header name (any row
+    // carrying the literal "Industry" label) rather than assumed position, with F/G as fallback.
+    const consHeaderRow = consRows.find(r=>r.some(h=>(h||"").trim()==="Industry"));
+    const consIndustryIdx = consHeaderRow ? consHeaderRow.findIndex(h=>(h||"").trim()==="Industry") : 5;
+    const consSubIndustryIdx = consHeaderRow ? consHeaderRow.findIndex(h=>(h||"").trim()==="Sub Industry") : 6;
     if(consDataStart !== -1){
       const num = s => { const n = parseFloat((s||"0").toString().replace(/[₹,]/g,"")); return isNaN(n)?0:n; };
       for(let i=consDataStart;i<consRows.length;i++){
@@ -749,7 +789,8 @@ async function syncData(){
         const month = parseDate(r[1]);
         if(!client || !month) continue;
         const revenue = num(r[2]), cost = num(r[3]);
-        newConsumable.push({ client, month, revenue, cost, margin: revenue-cost });
+        newConsumable.push({ client, month, revenue, cost, margin: revenue-cost,
+          industry:(r[consIndustryIdx]||"").toString().trim(), subIndustry:(r[consSubIndustryIdx]||"").toString().trim() });
       }
     }
 
@@ -764,8 +805,31 @@ async function syncData(){
     newConsumable.forEach(c=>{ if(c.client) nameSet.add(c.client); });
     const newClientNames = [...nameSet].sort((a,b)=>a.localeCompare(b));
 
+    // Industry / Sub Industry — Client List is the authoritative client->industry map (col B/C);
+    // any row from Projects/Chatbot R&M/Consumable carrying its own Industry value (written by
+    // the sheet's classifier) fills in clients missing from Client List as a fallback.
+    const clHeaderRow = clList.rows.find(r=>r.some(h=>(h||"").trim()==="Industry"));
+    const clIndustryIdx = clHeaderRow ? clHeaderRow.findIndex(h=>(h||"").trim()==="Industry") : 1;
+    const clSubIndustryIdx = clHeaderRow ? clHeaderRow.findIndex(h=>(h||"").trim()==="Sub Industry") : 2;
+    const newClientIndustry = {};
+    clList.rows.forEach(r=>{
+      const name = (r[0]||"").toString().trim();
+      if(!name || /^client( name)?$/i.test(name)) return;
+      const industry = (r[clIndustryIdx]||"").toString().trim();
+      const subIndustry = (r[clSubIndustryIdx]||"").toString().trim();
+      if(industry) newClientIndustry[name] = { industry, subIndustry };
+    });
+    [...newProjects, ...newCommercials, ...newConsumable].forEach(row=>{
+      if(row.client && row.industry && !newClientIndustry[row.client]) newClientIndustry[row.client] = { industry:row.industry, subIndustry:row.subIndustry||"" };
+    });
+    const indSet = new Set();
+    Object.values(newClientIndustry).forEach(v=>{ if(v.industry) indSet.add(v.industry); });
+    [...newProjects, ...newCommercials, ...newConsumable].forEach(row=>{ if(row.industry) indSet.add(row.industry); });
+    const newIndustries = [...indSet].sort((a,b)=>a.localeCompare(b));
+
     PROJECTS = newProjects; DELAYED_COUNT = delayed; COMMERCIALS = newCommercials;
     CONSUMABLE = newConsumable; CLIENT_NAMES = newClientNames; usingLiveData = true;
+    CLIENT_INDUSTRY = newClientIndustry; INDUSTRIES = newIndustries;
     setSyncState("ok"); showChangeBadge(changed);
     renderAll();
   }catch(err){
@@ -889,6 +953,64 @@ function setupYearMonthUI(prefix, state, onChange){
   });
 }
 
+/* ---------------- Industry / Sub Industry filter (shared multi-select, reused across all 4 tabs) ----------------
+   Any row/client with no classified Industry falls back to "Other" so it's still filterable rather
+   than silently vanishing from every industry bucket. */
+function industryOf(row){
+  if(row && row.industry) return row.industry;
+  const ci = row && CLIENT_INDUSTRY[row.client];
+  return (ci && ci.industry) || "Other";
+}
+function industryBtnLabel(filterObj){
+  if(filterObj.industries.size===0) return "All industries";
+  const sel=[...filterObj.industries];
+  return sel.length<=2 ? sel.join(", ") : `${sel.length} industries`;
+}
+function updateIndustryBtn(prefix, filterObj){
+  const btn = document.getElementById("industryBtn"+prefix); if(!btn) return;
+  btn.textContent = industryBtnLabel(filterObj);
+}
+// Wires the button/outside-click behavior once per tab; call at boot after the filter object exists.
+function initIndustryUI(prefix, filterObj, onChange){
+  const btn = document.getElementById("industryBtn"+prefix);
+  const panel = document.getElementById("industryPanel"+prefix);
+  if(!btn || !panel) return;
+  btn.addEventListener("click", e=>{ e.stopPropagation(); panel.style.display = panel.style.display==="none" ? "block" : "none"; });
+  document.addEventListener("click", e=>{
+    if(panel.style.display!=="none" && !panel.contains(e.target) && e.target!==btn){ panel.style.display="none"; }
+  });
+}
+// Rebuilds the checkbox list whenever the known industry set changes (e.g. after the first live
+// sync replaces the empty pre-sync list), preserving whatever the user already picked. Call this
+// every render, mirroring the csClientPanel pattern.
+function refreshIndustryUI(prefix, filterObj, onChange){
+  const panel = document.getElementById("industryPanel"+prefix);
+  const btn = document.getElementById("industryBtn"+prefix);
+  if(!panel || !btn) return;
+  if(panel.dataset.builtCount !== String(INDUSTRIES.length)){
+    panel.innerHTML = `<label class="ms-all"><input type="checkbox" class="ind-all-cb" checked> All industries</label>` +
+      INDUSTRIES.map(ind=>`<label><input type="checkbox" class="ind-cb" value="${ind.replace(/"/g,"&quot;")}"> ${ind}</label>`).join("");
+    panel.dataset.builtCount = String(INDUSTRIES.length);
+    const allCb = panel.querySelector(".ind-all-cb");
+    allCb.addEventListener("change", e=>{
+      if(e.target.checked){
+        filterObj.industries.clear();
+        panel.querySelectorAll(".ind-cb").forEach(cb=>cb.checked=false);
+        updateIndustryBtn(prefix, filterObj); onChange();
+      } else if(filterObj.industries.size===0){ e.target.checked = true; }
+    });
+    panel.querySelectorAll(".ind-cb").forEach(cb=>{
+      cb.checked = filterObj.industries.has(cb.value);
+      cb.addEventListener("change", ()=>{
+        if(cb.checked) filterObj.industries.add(cb.value); else filterObj.industries.delete(cb.value);
+        allCb.checked = filterObj.industries.size===0;
+        updateIndustryBtn(prefix, filterObj); onChange();
+      });
+    });
+  }
+  updateIndustryBtn(prefix, filterObj);
+}
+
 function initTimebar(segId, dateId, labelId, state, onChange, yearGroupId, monthGroupId, views){
   const seg = document.getElementById(segId);
   const dateInput0 = document.getElementById(dateId);
@@ -924,20 +1046,38 @@ setupYearMonthUI("Rev", timeRev, ()=>renderRevenue());
 setupYearMonthUI("Cons", timeCons, ()=>renderConsumable());
 
 /* ---------------- Filter state (Chatbots page) ---------------- */
-const filters = { stage:"All", type:"All", vendor:null, aiEnabled:"All" };
+const filters = { stage:"All", type:"All", vendor:null, aiEnabled:"All", industries: new Set() };
 function filteredProjects(){
   return PROJECTS.filter(p =>
     (filters.stage==="All" || p.stage===filters.stage) &&
     (filters.type==="All" || p.type===filters.type) &&
     (!filters.vendor || p.vendor===filters.vendor) &&
-    (filters.aiEnabled==="All" || p.aiEnabled===filters.aiEnabled)
+    (filters.aiEnabled==="All" || p.aiEnabled===filters.aiEnabled) &&
+    (filters.industries.size===0 || filters.industries.has(industryOf(p)))
   );
 }
 function setStage(s){ filters.stage=s; renderChatbots(); }
 function setType(t){ filters.type=t; renderChatbots(); }
 function toggleVendor(v){ filters.vendor = (filters.vendor===v)?null:v; renderChatbots(); }
 function setAIEnabled(v){ filters.aiEnabled=v; renderChatbots(); }
-function clearFilters(){ filters.stage="All"; filters.type="All"; filters.vendor=null; filters.aiEnabled="All"; renderChatbots(); }
+function clearIndustryFilter(prefix, filterObj, onChange){
+  filterObj.industries.clear();
+  const panel = document.getElementById("industryPanel"+prefix);
+  if(panel){
+    panel.querySelectorAll(".ind-cb").forEach(cb=>cb.checked=false);
+    const all = panel.querySelector(".ind-all-cb"); if(all) all.checked=true;
+  }
+  updateIndustryBtn(prefix, filterObj);
+  onChange();
+}
+function clearFilters(){
+  filters.stage="All"; filters.type="All"; filters.vendor=null; filters.aiEnabled="All";
+  filters.industries.clear();
+  const panel = document.getElementById("industryPanelChat");
+  if(panel){ panel.querySelectorAll(".ind-cb").forEach(cb=>cb.checked=false); const all=panel.querySelector(".ind-all-cb"); if(all) all.checked=true; }
+  updateIndustryBtn("Chat", filters);
+  renderChatbots();
+}
 
 /* ---------------- Render: Chatbots page ---------------- */
 function renderChatbots(){
@@ -961,6 +1101,7 @@ function renderChatbots(){
 
   // period stats
   refreshYearMonthUI("Chat", timeChat);
+  refreshIndustryUI("Chat", filters, ()=>renderChatbots());
   const {start,end} = periodBounds(timeChat);
   document.getElementById("periodLabel").textContent = timeChat.view==="Year"
     ? (timeChat.year==="All" ? "All years" : `FY ${timeChat.year}-${String(+timeChat.year+1).slice(-2)}`) + " · " + monthBtnLabel(timeChat)
@@ -1075,6 +1216,7 @@ function renderChatbots(){
   if(filters.type!=="All") crumbs.appendChild(makeCrumb("Type: "+filters.type, ()=>setType("All")));
   if(filters.vendor) crumbs.appendChild(makeCrumb("Vendor: "+filters.vendor, ()=>{filters.vendor=null; renderChatbots();}));
   if(filters.aiEnabled!=="All") crumbs.appendChild(makeCrumb("AI Enabled: "+filters.aiEnabled, ()=>setAIEnabled("All")));
+  if(filters.industries.size>0) crumbs.appendChild(makeCrumb("Industry: "+industryBtnLabel(filters), ()=>clearIndustryFilter("Chat", filters, ()=>renderChatbots())));
 }
 function makeCrumb(label,onClear){
   const el=document.createElement("div"); el.className="crumb";
@@ -1083,13 +1225,14 @@ function makeCrumb(label,onClear){
 }
 
 /* ---------------- Render: Chatbots R&M page (data sourced from the "Chatbot R&M" sheet, one row per chatbot per month) ---------------- */
-const revFilter = { vendor:null, type:null };
+const revFilter = { vendor:null, type:null, industries: new Set() };
 function setRevVendor(v){ revFilter.vendor = (revFilter.vendor===v)?null:v; renderRevenue(); }
 function setRevType(t){ revFilter.type = (revFilter.type===t)?null:t; renderRevenue(); }
 function typeOfCommercial(c){ const proj=PROJECTS.find(p=>p.chatbot===c.chatbot); return proj?proj.type:"Other"; }
 
 function renderRevenue(){
   refreshYearMonthUI("Rev", timeRev);
+  refreshIndustryUI("Rev", revFilter, ()=>renderRevenue());
   const {start,end} = periodBounds(timeRev);
   document.getElementById("periodLabelRev").textContent = timeRev.view==="Year"
     ? (timeRev.year==="All" ? "All years" : `FY ${timeRev.year}-${String(+timeRev.year+1).slice(-2)}`) + " · " + monthBtnLabel(timeRev)
@@ -1097,7 +1240,8 @@ function renderRevenue(){
   const inPeriod = COMMERCIALS.filter(c => c.dateOfLive && c.dateOfLive>=start && c.dateOfLive<=end && inMonthSet(timeRev, c.dateOfLive));
   const filteredPeriod = inPeriod.filter(c =>
     (!revFilter.vendor || c.vendor===revFilter.vendor) &&
-    (!revFilter.type || typeOfCommercial(c)===revFilter.type)
+    (!revFilter.type || typeOfCommercial(c)===revFilter.type) &&
+    (revFilter.industries.size===0 || revFilter.industries.has(industryOf(c)))
   );
 
   const totalRev = inPeriod.reduce((a,r)=>a+r.revenue,0);
@@ -1148,6 +1292,7 @@ function renderRevenue(){
   const crumbsRev=document.getElementById("breadcrumbsRev"); crumbsRev.innerHTML="";
   if(revFilter.vendor) crumbsRev.appendChild(makeCrumb("Vendor: "+revFilter.vendor, ()=>setRevVendor(revFilter.vendor)));
   if(revFilter.type) crumbsRev.appendChild(makeCrumb("Type: "+revFilter.type, ()=>setRevType(revFilter.type)));
+  if(revFilter.industries.size>0) crumbsRev.appendChild(makeCrumb("Industry: "+industryBtnLabel(revFilter), ()=>clearIndustryFilter("Rev", revFilter, ()=>renderRevenue())));
 
   const body=document.getElementById("revRecordsBody"); body.innerHTML="";
   const byClientTotals = {};
@@ -1200,8 +1345,18 @@ function renderMonthlyTrend(){
 }
 
 /* ---------------- Render: Client Summary page ---------------- */
-const csFilter = { year:"All", months:new Set(), clients:new Set() };
+const csFilter = { year:"All", months:new Set(), clients:new Set(), industries: new Set() };
 let csBreakdownView = "total";
+// Client Summary operates per-client (not per-row), so the Industry filter narrows the client
+// universe via CLIENT_INDUSTRY rather than filtering individual Commercials/Consumable rows.
+// An explicit client selection is intersected with the industry-matching clients, so picking
+// both narrows to their overlap instead of one silently overriding the other.
+function effectiveCsClients(){
+  if(csFilter.industries.size===0) return csFilter.clients;
+  const industryClients = new Set(CLIENT_NAMES.filter(n=>csFilter.industries.has((CLIENT_INDUSTRY[n]||{}).industry || "Other")));
+  if(csFilter.clients.size===0) return industryClients;
+  return new Set([...csFilter.clients].filter(c=>industryClients.has(c)));
+}
 
 function monthKey(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0"); }
 function monthLabel(d){ return d.toLocaleDateString("en-GB",{month:"short",year:"numeric"}); }
@@ -1210,9 +1365,12 @@ function fiscalYear(d){ return d.getMonth()>=3 ? d.getFullYear() : d.getFullYear
 
 // Combines the selected clients' Commercials rows (keyed by Date of Live) with their Consumable
 // rows (keyed by Month) into one chronological month-by-month series. An empty/missing
-// selectedClients set means "All" — aggregate across every client instead of filtering.
-function buildClientMonthly(selectedClients){
-  const useAll = !selectedClients || selectedClients.size===0;
+// selectedClients set means "All" — aggregate across every client instead of filtering — UNLESS
+// isUnfiltered is explicitly passed as false, in which case an empty set means "an active filter
+// (e.g. Industry) matched zero clients," so the result should be empty rather than falling back
+// to everyone.
+function buildClientMonthly(selectedClients, isUnfiltered){
+  const useAll = isUnfiltered !== undefined ? isUnfiltered : (!selectedClients || selectedClients.size===0);
   const map = {};
   COMMERCIALS.forEach(c=>{
     if((!useAll && !selectedClients.has(c.client)) || !c.dateOfLive) return;
@@ -1250,6 +1408,7 @@ function updateCsClientBtn(){
 }
 
 function populateCsFilters(){
+  refreshIndustryUI("Cs", csFilter, ()=>renderClientSummary());
   const yearSel = document.getElementById("csYear");
   const years = new Set();
   COMMERCIALS.forEach(c=>{ if(c.dateOfLive) years.add(fiscalYear(c.dateOfLive)); });
@@ -1345,7 +1504,7 @@ document.getElementById("csClientSearch").addEventListener("input", e=>{
 });
 
 document.getElementById("csClearBtn").addEventListener("click", ()=>{
-  csFilter.clients.clear(); csFilter.year="All"; csFilter.months.clear();
+  csFilter.clients.clear(); csFilter.year="All"; csFilter.months.clear(); csFilter.industries.clear();
   document.querySelectorAll(".cs-client-cb").forEach(cb=>cb.checked=false);
   const clientAll = document.getElementById("csClientAll"); if(clientAll) clientAll.checked=true;
   updateCsClientBtn();
@@ -1355,6 +1514,9 @@ document.getElementById("csClearBtn").addEventListener("click", ()=>{
     const all = panel.querySelector("#csMonthAll"); if(all) all.checked=true;
   }
   updateCsMonthBtn();
+  const indPanel = document.getElementById("industryPanelCs");
+  if(indPanel){ indPanel.querySelectorAll(".ind-cb").forEach(cb=>cb.checked=false); const all=indPanel.querySelector(".ind-all-cb"); if(all) all.checked=true; }
+  updateIndustryBtn("Cs", csFilter);
   renderClientSummary();
   document.getElementById("csYear").value="All";
 });
@@ -1391,7 +1553,7 @@ function renderCsBreakdownTable(yearRows){
 function renderClientSummary(){
   populateCsFilters();
 
-  const rowsAll = buildClientMonthly(csFilter.clients);
+  const rowsAll = buildClientMonthly(effectiveCsClients(), csFilter.clients.size===0 && csFilter.industries.size===0);
   const yearRows = csFilter.year==="All" ? rowsAll : rowsAll.filter(r=>fiscalYear(r.date)===+csFilter.year);
   // KPI cards respect financial Year (Apr-Mar), selected Month(s) and Client; the monthly
   // table/trend below only respects Year (+ Client), so the growth-over-time picture stays
@@ -1445,7 +1607,8 @@ function renderClientSummary(){
     const trendWord = overallPct===null ? "flat" : (overallPct>=0 ? "positive" : "negative");
     const trendClass = overallPct===null ? "trend-flat" : (overallPct>=0 ? "trend-up" : "trend-down");
     const clientSel = [...csFilter.clients];
-    const clientLabel = clientSel.length===0 ? "All clients" : (clientSel.length===1 ? clientSel[0] : clientSel.length+" selected clients");
+    let clientLabel = clientSel.length===0 ? "All clients" : (clientSel.length===1 ? clientSel[0] : clientSel.length+" selected clients");
+    if(csFilter.industries.size>0) clientLabel += ` (${industryBtnLabel(csFilter)})`;
     summaryEl.innerHTML = `<b>${clientLabel}</b> shows an overall <b class="${trendClass}">${trendWord}</b> trend
       from ${first.label} to ${last.label}${overallPct!==null?` (${overallPct>=0?"+":""}${overallPct.toFixed(1)}% total revenue)`:""} ·
       grew month-over-month in ${ups} of ${ups+downs} tracked months.`;
@@ -1460,17 +1623,19 @@ function renderAll(){
 }
 
 /* ---------------- Render: Consumable page (mirrors Chatbots R&M, keyed by Client + Month) ---------------- */
-const consFilter = { client:null };
+const consFilter = { client:null, industries: new Set() };
 function setConsClient(cl){ consFilter.client = (consFilter.client===cl) ? null : cl; renderConsumable(); }
 
 function renderConsumable(){
   refreshYearMonthUI("Cons", timeCons);
+  refreshIndustryUI("Cons", consFilter, ()=>renderConsumable());
   const {start,end} = periodBounds(timeCons);
   document.getElementById("periodLabelCons").textContent = timeCons.view==="Year"
     ? (timeCons.year==="All" ? "All years" : `FY ${timeCons.year}-${String(+timeCons.year+1).slice(-2)}`) + " · " + monthBtnLabel(timeCons)
     : fmtD(start) + (timeCons.view==="Daily" ? "" : " – " + fmtD(end));
   const inPeriod = CONSUMABLE.filter(c => c.month && c.month>=start && c.month<=end && inMonthSet(timeCons, c.month));
-  const filteredPeriod = inPeriod.filter(c => !consFilter.client || c.client===consFilter.client);
+  const filteredPeriod = inPeriod.filter(c => (!consFilter.client || c.client===consFilter.client) &&
+    (consFilter.industries.size===0 || consFilter.industries.has(industryOf(c))));
 
   const totalRev = inPeriod.reduce((a,r)=>a+r.revenue,0);
   const totalCost = inPeriod.reduce((a,r)=>a+r.cost,0);
@@ -1506,6 +1671,7 @@ function renderConsumable(){
 
   const crumbsCons=document.getElementById("breadcrumbsCons"); crumbsCons.innerHTML="";
   if(consFilter.client) crumbsCons.appendChild(makeCrumb("Client: "+consFilter.client, ()=>setConsClient(consFilter.client)));
+  if(consFilter.industries.size>0) crumbsCons.appendChild(makeCrumb("Industry: "+industryBtnLabel(consFilter), ()=>clearIndustryFilter("Cons", consFilter, ()=>renderConsumable())));
 
   const body=document.getElementById("consRecordsBody"); body.innerHTML="";
   const sortedRecords = [...filteredPeriod].sort((a,b)=>b.month-a.month);
@@ -1570,6 +1736,10 @@ function applyMonthParam(){
 }
 
 /* ---------------- Boot ---------------- */
+initIndustryUI("Chat", filters, ()=>renderChatbots());
+initIndustryUI("Rev", revFilter, ()=>renderRevenue());
+initIndustryUI("Cons", consFilter, ()=>renderConsumable());
+initIndustryUI("Cs", csFilter, ()=>renderClientSummary());
 renderAll();
 applyMonthParam();
 syncData();

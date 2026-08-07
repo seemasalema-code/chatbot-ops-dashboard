@@ -578,6 +578,7 @@ const TAB_PROJECTS = "Chatbot Projects";
 const TAB_CHATBOTRM = "Chatbot R&M";
 const TAB_CONSUMABLE = "Consumable";
 const TAB_CLIENTLIST = "Client List";
+const TAB_REVIEW = "Review Queue";
 const REFRESH_MS = 60000;
 
 /* ---------------- Taxonomy (literal — mirrors the sheet's own Status / Bot Type text) ----------------
@@ -707,11 +708,12 @@ async function syncData(){
     const [proj, rm] = await Promise.all([fetchSheetRows(TAB_PROJECTS), fetchSheetRows(TAB_CHATBOTRM)]);
     // Consumable / Client List are fetched separately and tolerate failure (e.g. tab renamed) —
     // a problem with either of these should not take down the core Projects/Chatbots R&M pages.
-    let cons = {rows:[], raw:""}, clList = {rows:[], raw:""};
+    let cons = {rows:[], raw:""}, clList = {rows:[], raw:""}, review = {rows:[], raw:""};
     try{ cons = await fetchSheetRows(TAB_CONSUMABLE); }catch(e){ console.warn("Consumable sheet fetch failed:", e); }
     try{ clList = await fetchSheetRows(TAB_CLIENTLIST); }catch(e){ console.warn("Client List sheet fetch failed:", e); }
+    try{ review = await fetchSheetRows(TAB_REVIEW); }catch(e){ console.warn("Review Queue sheet fetch failed:", e); }
 
-    const combinedHash = simpleHash(proj.raw + "||" + rm.raw + "||" + cons.raw + "||" + clList.raw);
+    const combinedHash = simpleHash(proj.raw + "||" + rm.raw + "||" + cons.raw + "||" + clList.raw + "||" + review.raw);
     const changed = lastCsvHash !== null && combinedHash !== lastCsvHash;
     lastCsvHash = combinedHash;
 
@@ -840,7 +842,9 @@ async function syncData(){
     PROJECTS = newProjects; DELAYED_COUNT = delayed; COMMERCIALS = newCommercials;
     CONSUMABLE = newConsumable; CLIENT_NAMES = newClientNames; usingLiveData = true;
     CLIENT_INDUSTRY = newClientIndustry; INDUSTRIES = newIndustries;
-    setSyncState("ok"); showChangeBadge(changed);
+    const pendingReviews = review.rows.filter(r => (r[13]||"").toString().trim().toLowerCase()==="pending").length;
+    setSyncState("ok"); showChangeBadge(changed || pendingReviews>0);
+    changeBadge.textContent = pendingReviews ? `${pendingReviews} update${pendingReviews===1?"":"s"} need review` : "Sheet updated";
     renderAll();
   }catch(err){
     console.warn("Sheet sync failed:", err);

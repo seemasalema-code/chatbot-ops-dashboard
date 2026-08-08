@@ -774,8 +774,13 @@ async function syncData(){
         const r = rmRows[i]; const chatbot = (r[kChatbot]||"").trim();
         if(!chatbot) continue;
         const client = (r[kClient]||"").trim() || chatbot;
+        const dateOfLive = parseDate(r[kMonth]);
+        const revenue = num(r[kRev]), cost = num(r[kCost]), margin = num(r[kMargin]);
+        // Chatbot R&M also has formula-generated future month placeholders.
+        // Keep a month only after it contains actual revenue, cost or margin data.
+        if(!dateOfLive || (!revenue && !cost && !margin)) continue;
         newCommercials.push({ client, chatbot, vendor:(r[kVendor]||"").trim()||"Unassigned",
-          dateOfLive: parseDate(r[kMonth]), revenue:num(r[kRev]), cost:num(r[kCost]), margin:num(r[kMargin]),
+          dateOfLive, revenue, cost, margin,
           industry: kIndustry>-1 ? (r[kIndustry]||"").trim() : "", subIndustry: kSubIndustry>-1 ? (r[kSubIndustry]||"").trim() : "" });
       }
     }

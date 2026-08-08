@@ -575,6 +575,7 @@
    ========================================================================= */
 const SHEET_ID = "1SQxJ-m_0N06qEJS4kCnC4sPJtciwJg54nINL9_FZVNs";
 const TAB_PROJECTS = "Chatbot Projects";
+const TAB_COMMERCIALS = "Commercials";
 const TAB_CHATBOTRM = "Chatbot R&M";
 const TAB_CONSUMABLE = "Consumable";
 const TAB_CLIENTLIST = "Client List";
@@ -705,7 +706,9 @@ async function fetchSheetRows(sheetName){
 async function syncData(){
   setSyncState("connecting");
   try{
-    const [proj, rm] = await Promise.all([fetchSheetRows(TAB_PROJECTS), fetchSheetRows(TAB_CHATBOTRM)]);
+    const [proj, rm, commercialSheet] = await Promise.all([
+      fetchSheetRows(TAB_PROJECTS), fetchSheetRows(TAB_CHATBOTRM), fetchSheetRows(TAB_COMMERCIALS)
+    ]);
     // Consumable / Client List are fetched separately and tolerate failure (e.g. tab renamed) —
     // a problem with either of these should not take down the core Projects/Chatbots R&M pages.
     let cons = {rows:[], raw:""}, clList = {rows:[], raw:""}, review = {rows:[], raw:""};
@@ -713,7 +716,7 @@ async function syncData(){
     try{ clList = await fetchSheetRows(TAB_CLIENTLIST); }catch(e){ console.warn("Client List sheet fetch failed:", e); }
     try{ review = await fetchSheetRows(TAB_REVIEW); }catch(e){ console.warn("Review Queue sheet fetch failed:", e); }
 
-    const combinedHash = simpleHash(proj.raw + "||" + rm.raw + "||" + cons.raw + "||" + clList.raw + "||" + review.raw);
+    const combinedHash = simpleHash(proj.raw + "||" + rm.raw + "||" + commercialSheet.raw + "||" + cons.raw + "||" + clList.raw + "||" + review.raw);
     const changed = lastCsvHash !== null && combinedHash !== lastCsvHash;
     lastCsvHash = combinedHash;
 
@@ -774,6 +777,31 @@ async function syncData(){
         newCommercials.push({ client, chatbot, vendor:(r[kVendor]||"").trim()||"Unassigned",
           dateOfLive: parseDate(r[kMonth]), revenue:num(r[kRev]), cost:num(r[kCost]), margin:num(r[kMargin]),
           industry: kIndustry>-1 ? (r[kIndustry]||"").trim() : "", subIndustry: kSubIndustry>-1 ? (r[kSubIndustry]||"").trim() : "" });
+      }
+    }
+
+    // Finalized deal economics are written by the Gmail automation to the Commercials tab.
+    // Include them when a matching monthly R&M record does not yet exist, so the console reflects
+    // newly finalized commercials immediately without double-counting established monthly rows.
+    const dealRows = commercialSheet.rows;
+    const dealHeaderIdx = dealRows.findIndex(r => (r[1]||"").trim() === "Chatbot");
+    if(dealHeaderIdx !== -1){
+      const dealHeader = dealRows[dealHeaderIdx], dealCol = colIndexer(dealHeader);
+      const dClient=dealCol("Client"), dChatbot=dealCol("Chatbot"), dVendor=dealCol("Vendor"),
+            dDate=dealCol("Commercials Finalized Date"), dCost=dealCol("Total Vendor Cost"),
+            dRevenue=dealCol("Finalized Client Revenue"), dMargin=dealCol("Margin");
+      const num = s => { const n=parseFloat((s||"0").toString().replace(/[^0-9.-]/g,"")); return isNaN(n)?0:n; };
+      const monthKey = d => d ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}` : "";
+      const existing = new Set(newCommercials.map(x=>`${(x.chatbot||"").toLowerCase()}|${monthKey(x.dateOfLive)}`));
+      for(let i=dealHeaderIdx+1;i<dealRows.length;i++){
+        const r=dealRows[i], chatbot=(r[dChatbot]||"").trim(); if(!chatbot) continue;
+        const date=parseDate(r[dDate]), revenue=num(r[dRevenue]), cost=num(r[dCost]);
+        if(!date || (!revenue && !cost)) continue;
+        const key=`${chatbot.toLowerCase()}|${monthKey(date)}`; if(existing.has(key)) continue;
+        newCommercials.push({client:(r[dClient]||"").trim()||chatbot, chatbot,
+          vendor:(r[dVendor]||"").trim()||"Unassigned", dateOfLive:date, revenue, cost,
+          margin:dMargin===undefined?revenue-cost:num(r[dMargin]), industry:"", subIndustry:"", source:"Commercials"});
+        existing.add(key);
       }
     }
 

@@ -757,7 +757,10 @@ async function syncData(){
 
     const rmHeaderIdx = rmRows.findIndex(r => (r[1]||"").trim() === "Chatbot");
     const newCommercials = [];
-    if(rmHeaderIdx !== -1){
+    // Commercials is the controlled financial source. Chatbot R&M remains a
+    // calculation/operational sheet but must not independently create console revenue.
+    const useRmAsFinancialSource = false;
+    if(useRmAsFinancialSource && rmHeaderIdx !== -1){
       // "Chatbot R&M" sheet layout (fixed by the sheet-build Apps Script — 28 cols, A-AB):
       // A Client, B Chatbot, C Vendor, D Month, E Financial Year, F-H AI/Agent/Conversation Qty,
       // I-Q Vendor-side cost breakdown (Q = Total Cost Vendor), R-Z Netcore-side revenue

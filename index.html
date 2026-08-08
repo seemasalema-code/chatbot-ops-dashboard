@@ -829,6 +829,10 @@ async function syncData(){
         const month = parseDate(r[1]);
         if(!client || !month) continue;
         const revenue = num(r[2]), cost = num(r[3]);
+        // The Consumable tab contains pre-filled future month/date formulas.  Those
+        // zero-value placeholders are not real sheet entries and must not extend
+        // the dashboard timeline beyond the latest month with actual data.
+        if(!revenue && !cost) continue;
         newConsumable.push({ client, month, revenue, cost, margin: revenue-cost,
           industry:(r[consIndustryIdx]||"").toString().trim(), subIndustry:(r[consSubIndustryIdx]||"").toString().trim() });
       }

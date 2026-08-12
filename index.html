@@ -80,7 +80,7 @@
   .seg{display:flex; background:var(--surface-alt); border-radius:10px; padding:3px; gap:2px;}
   .seg button{border:none; background:transparent; font-family:'Lexend', sans-serif; font-weight:600; font-size:12.5px; color:var(--text-dim); padding:7px 14px; border-radius:8px; cursor:pointer; transition:.12s;}
   .seg button.active{background:var(--accent); color:#fff;}
-  .timebar input[type=date]{font-family:'Lexend', sans-serif; font-size:12.5px; border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); background:var(--surface);}
+  .timebar input[type=date],.timebar input[type=week]{font-family:'Lexend', sans-serif; font-size:12.5px; border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); background:var(--surface);}
   .timebar input[type=text], .timebar select{font-family:'Lexend', sans-serif; font-size:12.5px; border:1px solid var(--border); border-radius:8px; padding:7px 10px; color:var(--text); background:var(--surface);}
   .timebar input[type=text]{min-width:260px;}
   .ms-btn{font-family:'Lexend', sans-serif; font-size:12.5px; font-weight:600; border:1px solid var(--border); border-radius:8px; padding:7px 12px; color:var(--text); background:var(--surface); cursor:pointer; min-width:140px; text-align:left;}
@@ -123,6 +123,10 @@
 
   .filter-row{display:flex; flex-wrap:wrap; gap:10px; align-items:center;}
   .filter-label{font-size:11.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.05em; font-weight:600; margin-right:2px;}
+  .clear-filters{margin-left:auto; border:1px solid var(--border); background:var(--surface); color:var(--accent); border-radius:18px; padding:7px 12px; font:600 12px 'Lexend',sans-serif; cursor:pointer;}
+  .clear-filters:hover{background:var(--accent-soft); border-color:var(--accent);}
+  .pstat{cursor:pointer; transition:.14s;}
+  .pstat:hover,.pstat.active{transform:translateY(-1px); box-shadow:0 0 0 2px var(--accent-soft); background:#fff;}
   .chip{font-family:'Lexend', sans-serif; font-size:12.5px; padding:8px 14px; border-radius:20px; border:1px solid var(--border); cursor:pointer; transition:.14s; color:var(--text-dim); background:var(--surface);}
   .chip:hover{border-color:var(--accent); color:var(--text);}
   .chip.active{background:var(--chip-color,var(--accent)); border-color:transparent; color:#fff;}
@@ -338,6 +342,7 @@
         <div class="filter-row">
           <span class="filter-label">Vendor</span>
           <div id="vendorChips" style="display:contents;"></div>
+          <button type="button" class="clear-filters" id="clearFiltersBtn">Clear filters</button>
         </div>
       </div>
     </div>
@@ -587,9 +592,9 @@ const REFRESH_MS = 60000;
    record's tab always matches what's typed in the sheet. STAGE_ORDER/TYPE_ORDER just fix a sensible
    display order and let a few not-yet-used categories appear pre-emptively with a 0 count; anything
    encountered that isn't already listed is appended automatically so nothing gets silently dropped. */
-const STAGE_ORDER = ["Discovery","Demo Bot","Quotes Given","Development","UAT","Live","On Hold","Lost","Other"];
+const STAGE_ORDER = ["Discovery","Demo Bot","Quotes Given","Development","UAT","Live","On Hold","Paused","Lost","Other"];
 const STAGE_COLOR = {"Discovery":"#7C3AED","Demo Bot":"#C084FC","Quotes Given":"#A78BFA","Development":"#2563EB","UAT":"#0FB5A6",
-  "Live":"#16A34A","On Hold":"#D97706","Lost":"#DC2626","Other":"#9AA1C0"};
+  "Live":"#16A34A","On Hold":"#D97706","Paused":"#0891B2","Lost":"#DC2626","Other":"#9AA1C0"};
 const STAGE_FALLBACK_PALETTE = ["#DB2777","#0891B2","#65A30D","#EA580C","#4F46E5"];
 
 const TYPE_ORDER = ["RCS","WhatsApp","RCS - S2C","Other"];
@@ -730,13 +735,20 @@ async function syncData(){
     // is unreliable here — address columns by position instead.
     // NOTE: Industry/Sub Industry were moved to sit right after Chatbot (before Sales Connect)
     // in the sheet, which shifted every column below by +2 — updated to match.
-    const cClient=0, cChatbot=1, cPlatform=5, cAIEnabled=6, cVendor=7, cStatus=8, cDelay=20,
+    const cClient=0, cChatbot=1, cPlatform=5, cAIEnabled=6, cVendor=7, cStatus=8,
           cBrief=9, cComm=10, cDev=13, cTest=14, cActualLive=16, cDaysToGo=19;
     // Industry / Sub Industry are plain-text headers (no date/number format applied), so
     // header-name lookup is reliable here even though the columns above use fixed positions.
     const pHeaderRow = projRows[pHeaderIdx];
     const cIndustry = pHeaderRow.findIndex(h=>(h||"").trim()==="Industry");
     const cSubIndustry = pHeaderRow.findIndex(h=>(h||"").trim()==="Sub Industry");
+    const findProjectCol = names => {
+      const wanted=names.map(n=>n.toLowerCase());
+      return pHeaderRow.findIndex(h=>wanted.includes((h||"").trim().toLowerCase()));
+    };
+    const cDelayFound=findProjectCol(["Delay Flag"]), cDelay=cDelayFound>-1?cDelayFound:20;
+    const cDelayCommentFound=findProjectCol(["Delay Comments","Delay Comment","Reason for Delay","Delay Reason","Notes","Remarks"]), cDelayComment=cDelayCommentFound>-1?cDelayCommentFound:21;
+    const cPausedFound=findProjectCol(["Date Paused","Paused Date"]), cPaused=cPausedFound>-1?cPausedFound:23;
     const newProjects = []; let delayed = 0;
     for(let i=pHeaderIdx+1;i<projRows.length;i++){
       const r = projRows[i]; const chatbot = (r[cChatbot]||"").trim();
@@ -747,12 +759,14 @@ async function syncData(){
         client, chatbot, platform, vendor:(r[cVendor]||"").trim(), status,
         aiEnabled: (r[cAIEnabled]||"").trim(),
         stage: toStage(status), type: toType(platform),
-        dates:{ brief:parseDate(r[cBrief]), comm:parseDate(r[cComm]), dev:parseDate(r[cDev]), test:parseDate(r[cTest]), liveDate:parseDate(r[cActualLive]) },
+        dates:{ brief:parseDate(r[cBrief]), comm:parseDate(r[cComm]), dev:parseDate(r[cDev]), test:parseDate(r[cTest]), liveDate:parseDate(r[cActualLive]), paused: cPaused>-1?parseDate(r[cPaused]):null },
         daysToGoLive: (r[cDaysToGo]||"").toString().trim(),
+        delayFlag: cDelay>-1 ? (r[cDelay]||"").toString().trim() : "",
+        delayComment: cDelayComment>-1 ? (r[cDelayComment]||"").toString().trim() : "",
         industry: cIndustry>-1 ? (r[cIndustry]||"").trim() : "",
         subIndustry: cSubIndustry>-1 ? (r[cSubIndustry]||"").trim() : ""
       });
-      if(cDelay!==undefined && (r[cDelay]||"").trim().startsWith("Delayed")) delayed++;
+      if(cDelay>-1 && (r[cDelay]||"").trim().toLowerCase().startsWith("delayed")) delayed++;
     }
 
     const rmHeaderIdx = rmRows.findIndex(r => (r[1]||"").trim() === "Chatbot");
@@ -934,12 +948,12 @@ PAGES.forEach(p=>{
 });
 
 /* ---------------- Time filter state (shared logic per page) ---------------- */
-function makeTimeState(){ return { view:"Monthly", asOf:new Date(), year:"All", months:new Set() }; }
+function makeTimeState(){ const d=new Date(); return { view:"Monthly", asOf:d, year:String(d.getMonth()>=3?d.getFullYear():d.getFullYear()-1), months:new Set([d.getMonth()+1]) }; }
 const timeChat = makeTimeState(), timeRev = makeTimeState(), timeCons = makeTimeState();
-timeCons.view = "Year"; // Consumable opens on yearly totals first, since the current month is often still empty
+timeCons.view = "Year"; timeCons.year="All"; timeCons.months.clear(); // Consumable opens on yearly totals first
 
 function periodBounds(ts){
-  if(ts.view==="Year"){
+  if(ts.view==="Year" || ts.view==="Monthly"){
     if(ts.year==="All") return { start:new Date(1900,0,1), end:new Date(2100,11,31,23,59,59,999) };
     const y = +ts.year;
     return { start:new Date(y,3,1), end:new Date(y+1,2,31,23,59,59,999) };
@@ -972,9 +986,10 @@ function monthBtnLabel(state){
 function refreshYearMonthUI(prefix, state){
   const yearSel = document.getElementById("yearSel"+prefix);
   if(!yearSel) return;
-  const prevYear = yearSel.value || state.year;
+  const prevYear = state.year;
   const years = fiscalYearsAvailable();
   yearSel.innerHTML = `<option value="All">All years</option>` + years.map(y=>`<option value="${y}">FY ${y}-${String(y+1).slice(-2)}</option>`).join("");
+  if(years.length===0){ yearSel.value="All"; return; }
   yearSel.value = (years.includes(+prevYear) || prevYear==="All") ? prevYear : "All";
   state.year = yearSel.value;
   const btn = document.getElementById("monthBtn"+prefix);
@@ -993,11 +1008,13 @@ function setupYearMonthUI(prefix, state, onChange){
   monthPanel.innerHTML = `<label class="ms-all"><input type="checkbox" class="ms-all-cb" checked> All months</label>` +
     FY_MONTHS_ORDER.map(([m,num])=>`<label><input type="checkbox" class="ms-cb" value="${num}"> ${m}</label>`).join("");
   const allCb = monthPanel.querySelector(".ms-all-cb");
+  allCb.checked = state.months.size===0;
   allCb.addEventListener("change", e=>{
     if(e.target.checked){ state.months.clear(); monthPanel.querySelectorAll(".ms-cb").forEach(cb=>cb.checked=false); monthBtn.textContent=monthBtnLabel(state); onChange(); }
     else if(state.months.size===0){ e.target.checked = true; }
   });
   monthPanel.querySelectorAll(".ms-cb").forEach(cb=>{
+    cb.checked = state.months.has(+cb.value);
     cb.addEventListener("change", ()=>{
       if(cb.checked) state.months.add(+cb.value); else state.months.delete(+cb.value);
       allCb.checked = state.months.size===0;
@@ -1071,11 +1088,16 @@ function initTimebar(segId, dateId, labelId, state, onChange, yearGroupId, month
   const dateGroup = dateInput0.parentElement;
   const yearGroup = yearGroupId ? document.getElementById(yearGroupId) : null;
   const monthGroup = monthGroupId ? document.getElementById(monthGroupId) : null;
+  const pad=n=>String(n).padStart(2,"0");
+  const isoWeekValue=d=>{ const x=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())); x.setUTCDate(x.getUTCDate()+4-(x.getUTCDay()||7)); const y0=new Date(Date.UTC(x.getUTCFullYear(),0,1)); return `${x.getUTCFullYear()}-W${pad(Math.ceil((((x-y0)/86400000)+1)/7))}`; };
+  const dateFromIsoWeek=v=>{ const m=(v||"").match(/^(\d{4})-W(\d{2})$/); if(!m)return null; const jan4=new Date(+m[1],0,4), day=(jan4.getDay()+6)%7; const d=new Date(jan4); d.setDate(jan4.getDate()-day+(+m[2]-1)*7); return d; };
+  const syncDateInput=v=>{ dateInput0.type=v==="Weekly"?"week":"date"; if(v==="Weekly") dateInput0.value=isoWeekValue(state.asOf); else dateInput0.value=`${state.asOf.getFullYear()}-${pad(state.asOf.getMonth()+1)}-${pad(state.asOf.getDate())}`; };
   const syncGroups = (v)=>{
-    const isYear = v==="Year";
-    dateGroup.style.display = isYear ? "none" : "";
-    if(yearGroup) yearGroup.style.display = isYear ? "" : "none";
-    if(monthGroup) monthGroup.style.display = isYear ? "" : "none";
+    const useMonthPicker = v==="Year" || v==="Monthly";
+    dateGroup.style.display = useMonthPicker ? "none" : "";
+    if(yearGroup) yearGroup.style.display = useMonthPicker ? "" : "none";
+    if(monthGroup) monthGroup.style.display = useMonthPicker ? "" : "none";
+    syncDateInput(v);
   };
   (views || ["Daily","Weekly","Monthly","Year"]).forEach(v=>{
     const b=document.createElement("button"); b.textContent=v; b.className=v===state.view?"active":"";
@@ -1089,8 +1111,7 @@ function initTimebar(segId, dateId, labelId, state, onChange, yearGroupId, month
   });
   syncGroups(state.view); // match the group visibility to whatever view this state already starts on
   const dateInput = document.getElementById(dateId);
-  dateInput.valueAsDate = state.asOf;
-  dateInput.addEventListener("change", ()=>{ if(dateInput.valueAsDate){ state.asOf = dateInput.valueAsDate; onChange(); } });
+  dateInput.addEventListener("change", ()=>{ const d=state.view==="Weekly"?dateFromIsoWeek(dateInput.value):parseDate(dateInput.value); if(d){ state.asOf=d; onChange(); } });
 }
 initTimebar("segView","asOfDate","periodLabel", timeChat, ()=>renderChatbots(), "yearGroupChat","monthGroupChat");
 initTimebar("segViewRev","asOfDateRev","periodLabelRev", timeRev, ()=>renderRevenue(), "yearGroupRev","monthGroupRev");
@@ -1100,7 +1121,7 @@ setupYearMonthUI("Rev", timeRev, ()=>renderRevenue());
 setupYearMonthUI("Cons", timeCons, ()=>renderConsumable());
 
 /* ---------------- Filter state (Chatbots page) ---------------- */
-const filters = { stage:"All", type:"All", vendor:null, aiEnabled:"All", industries: new Set() };
+const filters = { stage:"All", type:"All", vendor:null, aiEnabled:"All", industries: new Set(), delayedOnly:false, milestone:null };
 // Whether the FY Year / Month selection actually narrows anything — the default "All years,
 // All months" state should behave exactly as before (every project shown, including ones with
 // no milestone dates recorded yet), so date-based filtering only kicks in once the user actively
@@ -1130,10 +1151,13 @@ function filteredProjects(){
     (filters.type==="All" || p.type===filters.type) &&
     (!filters.vendor || p.vendor===filters.vendor) &&
     (filters.aiEnabled==="All" || p.aiEnabled===filters.aiEnabled) &&
-    (filters.industries.size===0 || filters.industries.has(industryOf(p)))
+    (filters.industries.size===0 || filters.industries.has(industryOf(p))) &&
+    (!filters.delayedOnly || (p.delayFlag||"").toLowerCase().startsWith("delayed")) &&
+    (!filters.milestone || (p.dates[filters.milestone] && p.dates[filters.milestone]>=start && p.dates[filters.milestone]<=end && inMonthSet(timeChat,p.dates[filters.milestone])))
   );
 }
-function setStage(s){ filters.stage=s; renderChatbots(); }
+function focusRecords(){ const el=document.getElementById("records"); el.scrollIntoView({behavior:"smooth",block:"start"}); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+function setStage(s){ filters.stage=s; filters.delayedOnly=false; filters.milestone=null; renderChatbots(); setTimeout(focusRecords,0); }
 function setType(t){ filters.type=t; renderChatbots(); }
 function toggleVendor(v){ filters.vendor = (filters.vendor===v)?null:v; renderChatbots(); }
 function setAIEnabled(v){ filters.aiEnabled=v; renderChatbots(); }
@@ -1149,12 +1173,13 @@ function clearIndustryFilter(prefix, filterObj, onChange){
 }
 function clearFilters(){
   filters.stage="All"; filters.type="All"; filters.vendor=null; filters.aiEnabled="All";
-  filters.industries.clear();
+  filters.industries.clear(); filters.delayedOnly=false; filters.milestone=null;
   const panel = document.getElementById("industryPanelChat");
   if(panel){ panel.querySelectorAll(".ind-cb").forEach(cb=>cb.checked=false); const all=panel.querySelector(".ind-all-cb"); if(all) all.checked=true; }
   updateIndustryBtn("Chat", filters);
   renderChatbots();
 }
+document.getElementById("clearFiltersBtn").addEventListener("click", clearFilters);
 
 /* ---------------- Render: Chatbots page ---------------- */
 function renderChatbots(){
@@ -1168,7 +1193,7 @@ function renderChatbots(){
   [
     {label:"Total Chatbots", value:total, hint:"across all stages", color:"var(--text)", action:clearFilters},
     {label:"Live", value:liveCount, hint:"in production", color:"var(--live)", action:()=>setStage("Live")},
-    {label:"Delayed", value:DELAYED_COUNT, hint:DELAYED_COUNT?"flagged in Delay Flag column":"none flagged yet", color:"var(--delay)", action:()=>{}},
+    {label:"Delayed", value:DELAYED_COUNT, hint:DELAYED_COUNT?"click to see projects and reasons":"none flagged yet", color:"var(--delay)", action:()=>{ filters.stage="All"; filters.type="All"; filters.vendor=null; filters.aiEnabled="All"; filters.delayedOnly=true; filters.milestone=null; timeChat.year="All"; timeChat.months.clear(); const yearBtn=[...document.getElementById("segView").children].find(b=>b.textContent==="Year"); if(yearBtn) yearBtn.click(); else renderChatbots(); setTimeout(focusRecords,0); }},
     {label:"Avg. Margin %", value:avgMarginPct+"%", hint:"from Chatbot R&M sheet", color:"var(--accent)", action:()=>{document.querySelector('[data-page="revenue"]').click();}},
   ].forEach(k=>{
     const el=document.createElement("div"); el.className="kpi"; el.style.setProperty("--kpi-color",k.color);
@@ -1180,19 +1205,19 @@ function renderChatbots(){
   refreshYearMonthUI("Chat", timeChat);
   refreshIndustryUI("Chat", filters, ()=>renderChatbots());
   const {start,end} = periodBounds(timeChat);
-  document.getElementById("periodLabel").textContent = timeChat.view==="Year"
+  document.getElementById("periodLabel").textContent = (timeChat.view==="Year" || timeChat.view==="Monthly")
     ? (timeChat.year==="All" ? "All years" : `FY ${timeChat.year}-${String(+timeChat.year+1).slice(-2)}`) + " · " + monthBtnLabel(timeChat)
     : fmtD(start) + (timeChat.view==="Daily" ? "" : " – " + fmtD(end));
   const inPeriod = d => d && d>=start && d<=end && inMonthSet(timeChat, d);
   const pstats = [
-    {l:"Briefs Received", n:PROJECTS.filter(p=>inPeriod(p.dates.brief)).length},
-    {l:"Commercials Shared", n:PROJECTS.filter(p=>inPeriod(p.dates.comm)).length},
-    {l:"Development Started", n:PROJECTS.filter(p=>inPeriod(p.dates.dev)).length},
-    {l:"UAT Started", n:PROJECTS.filter(p=>inPeriod(p.dates.test)).length},
-    {l:"Went Live", n:PROJECTS.filter(p=>inPeriod(p.dates.liveDate)).length},
+    {l:"Briefs Received", key:"brief", n:PROJECTS.filter(p=>inPeriod(p.dates.brief)).length},
+    {l:"Commercials Shared", key:"comm", n:PROJECTS.filter(p=>inPeriod(p.dates.comm)).length},
+    {l:"Development Started", key:"dev", n:PROJECTS.filter(p=>inPeriod(p.dates.dev)).length},
+    {l:"UAT Started", key:"test", n:PROJECTS.filter(p=>inPeriod(p.dates.test)).length},
+    {l:"Went Live", key:"liveDate", n:PROJECTS.filter(p=>inPeriod(p.dates.liveDate)).length},
   ];
   const psEl = document.getElementById("periodStats"); psEl.innerHTML="";
-  pstats.forEach(s=>{ const d=document.createElement("div"); d.className="pstat"; d.innerHTML=`<div class="pn">${s.n}</div><div class="pl">${s.l}</div>`; psEl.appendChild(d); });
+  pstats.forEach(s=>{ const d=document.createElement("div"); d.className="pstat"+(filters.milestone===s.key?" active":""); d.title="Show related projects"; d.innerHTML=`<div class="pn">${s.n}</div><div class="pl">${s.l}</div>`; d.addEventListener("click",()=>{filters.milestone=filters.milestone===s.key?null:s.key; filters.delayedOnly=false; filters.stage="All"; filters.type="All"; filters.vendor=null; filters.aiEnabled="All"; renderChatbots(); setTimeout(focusRecords,0);}); psEl.appendChild(d); });
 
   // Stage/Type tab order: the fixed taxonomy above, plus any status/bot-type text found in the
   // sheet that isn't already listed — so nothing the sheet contains ever goes unrepresented.
@@ -1274,11 +1299,17 @@ function renderChatbots(){
   // records — Bot Type and Stage show the literal sheet values (Bot Type / Status columns),
   // not the normalized bucket labels used for tabs/colors.
   const rows=filteredProjects(); const recordsBody=document.getElementById("recordsBody"); recordsBody.innerHTML="";
-  const EXTRA_COL = {
+  const STAGE_EXTRA_COL = {
     "Live":        {header:"Went Live On",   cell:p=>p.dates.liveDate ? fmtD(p.dates.liveDate) : "—"},
     "Development": {header:"Days Remaining", cell:p=>p.daysToGoLive ? p.daysToGoLive : "—"},
     "UAT":         {header:"In UAT Since",   cell:p=>p.dates.test ? fmtD(p.dates.test) : "—"},
+    "Paused":      {header:"Paused On",      cell:p=>p.dates.paused ? fmtD(p.dates.paused) : "Date not entered"},
   }[filters.stage];
+  const EXTRA_COL = filters.delayedOnly
+    ? {header:"Delay Reason / Comment", cell:p=>p.delayComment||"Reason not entered in sheet"}
+    : filters.milestone
+      ? {header:"Relevant Date", cell:p=>p.dates[filters.milestone]?fmtD(p.dates[filters.milestone]):"—"}
+      : STAGE_EXTRA_COL;
 
   const headRow = document.getElementById("recordsHeadRow");
   headRow.innerHTML = `<th>Chatbot</th><th>Bot Type</th><th>Vendor</th><th>Stage</th>` + (EXTRA_COL ? `<th>${EXTRA_COL.header}</th>` : "");
@@ -1301,6 +1332,8 @@ function renderChatbots(){
   if(filters.vendor) crumbs.appendChild(makeCrumb("Vendor: "+filters.vendor, ()=>{filters.vendor=null; renderChatbots();}));
   if(filters.aiEnabled!=="All") crumbs.appendChild(makeCrumb("AI Enabled: "+filters.aiEnabled, ()=>setAIEnabled("All")));
   if(filters.industries.size>0) crumbs.appendChild(makeCrumb("Industry: "+industryBtnLabel(filters), ()=>clearIndustryFilter("Chat", filters, ()=>renderChatbots())));
+  if(filters.delayedOnly) crumbs.appendChild(makeCrumb("Delayed projects", ()=>{filters.delayedOnly=false; renderChatbots();}));
+  if(filters.milestone){ const label=({brief:"Briefs Received",comm:"Commercials Shared",dev:"Development Started",test:"UAT Started",liveDate:"Went Live"})[filters.milestone]; crumbs.appendChild(makeCrumb(label,()=>{filters.milestone=null;renderChatbots();})); }
 }
 function makeCrumb(label,onClear){
   const el=document.createElement("div"); el.className="crumb";
@@ -1318,7 +1351,7 @@ function renderRevenue(){
   refreshYearMonthUI("Rev", timeRev);
   refreshIndustryUI("Rev", revFilter, ()=>renderRevenue());
   const {start,end} = periodBounds(timeRev);
-  document.getElementById("periodLabelRev").textContent = timeRev.view==="Year"
+  document.getElementById("periodLabelRev").textContent = (timeRev.view==="Year" || timeRev.view==="Monthly")
     ? (timeRev.year==="All" ? "All years" : `FY ${timeRev.year}-${String(+timeRev.year+1).slice(-2)}`) + " · " + monthBtnLabel(timeRev)
     : fmtD(start) + (timeRev.view==="Daily" ? "" : " – " + fmtD(end));
   const inPeriod = COMMERCIALS.filter(c => c.dateOfLive && c.dateOfLive>=start && c.dateOfLive<=end && inMonthSet(timeRev, c.dateOfLive));
@@ -1783,7 +1816,7 @@ function renderConsumable(){
   refreshYearMonthUI("Cons", timeCons);
   refreshIndustryUI("Cons", consFilter, ()=>renderConsumable());
   const {start,end} = periodBounds(timeCons);
-  document.getElementById("periodLabelCons").textContent = timeCons.view==="Year"
+  document.getElementById("periodLabelCons").textContent = (timeCons.view==="Year" || timeCons.view==="Monthly")
     ? (timeCons.year==="All" ? "All years" : `FY ${timeCons.year}-${String(+timeCons.year+1).slice(-2)}`) + " · " + monthBtnLabel(timeCons)
     : fmtD(start) + (timeCons.view==="Daily" ? "" : " – " + fmtD(end));
   const inPeriod = CONSUMABLE.filter(c => c.month && c.month>=start && c.month<=end && inMonthSet(timeCons, c.month));

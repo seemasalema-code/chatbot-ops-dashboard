@@ -332,7 +332,7 @@
       </div>
 
       <div class="panel">
-        <h2>Filter Records <small>tabs = stage, bot type &amp; AI enabled · chips = vendor</small></h2>
+        <h2>Filter Records <small>values from the Chatbot Projects sheet</small></h2>
         <div class="tab-group-label">Stage</div>
         <div class="tabbar" id="stageTabbar"></div>
         <div class="tab-group-label">Bot Type</div>
@@ -586,7 +586,6 @@ const TAB_CONSUMABLE = "Consumable";
 const TAB_CLIENTLIST = "Client List";
 const TAB_REVIEW = "Review Queue";
 const REFRESH_MS = 60000;
-const CONSOLE_PROJECTS_URL = "https://project-monitoring-console.vercel.app/api/shared-projects";
 
 /* ---------------- Taxonomy (literal — mirrors the sheet's own Status / Bot Type text) ----------------
    Tabs show the exact Status / Bot Type strings from the sheet (no relabeling/bucketing), so a
@@ -602,6 +601,10 @@ const TYPE_ORDER = ["RCS","WhatsApp","RCS - S2C","Other"];
 
 function toStage(rawStatus){ const s=(rawStatus||"").trim(); return s || "Other"; }
 function toType(rawPlatform){ const t=(rawPlatform||"").trim(); return t || "Other"; }
+function toVendor(rawVendor){
+  const value=(rawVendor||"").trim(), key=value.toLowerCase().replace(/[^a-z0-9]+/g,"");
+  return ({kevit:"Kevit",limechat:"LimeChat",talkai:"Talkk.ai",talkkai:"Talkk.ai",consense:"Consense",internal:"Internal"})[key] || value;
+}
 function stageColor(s){
   if(STAGE_COLOR[s]) return STAGE_COLOR[s];
   // Any status not already known gets a stable color assigned on first sight, so it's still distinguishable.
@@ -712,7 +715,6 @@ async function fetchSheetRows(sheetName){
 async function syncData(){
   setSyncState("connecting");
   try{
-    const consoleFeedPromise = fetch(CONSOLE_PROJECTS_URL,{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject(new Error("Console feed unavailable"))).catch(()=>({projects:[]}));
     const [proj, rm, commercialSheet] = await Promise.all([
       fetchSheetRows(TAB_PROJECTS), fetchSheetRows(TAB_CHATBOTRM), fetchSheetRows(TAB_COMMERCIALS)
     ]);
@@ -758,7 +760,7 @@ async function syncData(){
       const client = (r[cClient]||"").trim() || chatbot;
       const status = (r[cStatus]||"").trim(), platform = (r[cPlatform]||"").trim();
       newProjects.push({
-        client, chatbot, platform, vendor:(r[cVendor]||"").trim(), status,
+        client, chatbot, platform, vendor:toVendor(r[cVendor]), status,
         aiEnabled: (r[cAIEnabled]||"").trim(),
         stage: toStage(status), type: toType(platform),
         dates:{ brief:parseDate(r[cBrief]), comm:parseDate(r[cComm]), dev:parseDate(r[cDev]), test:parseDate(r[cTest]), liveDate:parseDate(r[cActualLive]), paused: cPaused>-1?parseDate(r[cPaused]):null },
@@ -770,20 +772,6 @@ async function syncData(){
       });
       if(cDelay>-1 && (r[cDelay]||"").trim().toLowerCase().startsWith("delayed")) delayed++;
     }
-
-    // Merge the private console's sanitized project feed into the Sheet data. The Sheet remains
-    // authoritative for its populated fields; console-only Gmail projects are appended, while
-    // go-live and latest-stage updates fill gaps until the Sheet automation catches up.
-    const consoleFeed = await consoleFeedPromise;
-    const identity = (client,project)=>`${client||""} ${project||""}`.toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
-    const projectIndex = new Map(newProjects.map((project,index)=>[identity(project.client,project.chatbot),index]));
-    (consoleFeed.projects||[]).forEach(item=>{
-      if(!item.client||!item.project)return;
-      const key=identity(item.client,item.project),found=projectIndex.get(key),liveDate=parseDate(item.actualGoLive);
-      if(found!==undefined){const current=newProjects[found];if(liveDate&&!current.dates.liveDate)current.dates.liveDate=liveDate;if(item.stage&&(!current.status||/review|requirement/i.test(current.status)))current.status=item.stage;if(item.vendor&&!current.vendor)current.vendor=item.vendor;current.stage=toStage(current.status);return;}
-      const added={client:item.client,chatbot:item.project,platform:item.channel||"",vendor:item.vendor||"",status:liveDate?"Live":item.stage||"To review",aiEnabled:"",stage:liveDate?"Live":toStage(item.stage||""),type:toType(item.channel||""),dates:{brief:null,comm:null,dev:null,test:null,liveDate,paused:null},daysToGoLive:"",delayFlag:"",delayComment:"",industry:"",subIndustry:"",source:"Project Monitoring Console"};
-      projectIndex.set(key,newProjects.length);newProjects.push(added);
-    });
 
     const rmHeaderIdx = rmRows.findIndex(r => (r[1]||"").trim() === "Chatbot");
     const newCommercials = [];
@@ -1246,9 +1234,9 @@ function renderChatbots(){
   // Stage/Type tab order: the fixed taxonomy above, plus any status/bot-type text found in the
   // sheet that isn't already listed — so nothing the sheet contains ever goes unrepresented.
   const stagesPresent = [...new Set(PROJECTS.map(p=>p.stage))];
-  const effStageOrder = [...STAGE_ORDER.filter(s=>s!=="Other"), ...stagesPresent.filter(s=>s!=="Other" && !STAGE_ORDER.includes(s)), "Other"];
+  const effStageOrder = [...STAGE_ORDER.filter(s=>stagesPresent.includes(s)), ...stagesPresent.filter(s=>!STAGE_ORDER.includes(s))];
   const typesPresent = [...new Set(PROJECTS.map(p=>p.type))];
-  const effTypeOrder = [...TYPE_ORDER.filter(t=>t!=="Other"), ...typesPresent.filter(t=>t!=="Other" && !TYPE_ORDER.includes(t)), "Other"];
+  const effTypeOrder = [...TYPE_ORDER.filter(t=>typesPresent.includes(t)), ...typesPresent.filter(t=>!TYPE_ORDER.includes(t))];
 
   // Everything in the "Filter Records" zone below (donut, stage/type tabs, AI + vendor chips) is
   // scoped by the FY Year and Industry filters above it, so picking a year or industry visibly
@@ -1284,7 +1272,7 @@ function renderChatbots(){
   const allStageTab=document.createElement("div"); allStageTab.className="tab"+(filters.stage==="All"?" active":"");
   allStageTab.style.setProperty("--tab-color","var(--accent)"); allStageTab.innerHTML=`All <span class="n">${scopedTotal}</span>`;
   allStageTab.addEventListener("click", ()=>setStage("All")); stageTabbar.appendChild(allStageTab);
-  effStageOrder.forEach(s=>{
+  effStageOrder.filter(s=>byStage[s]>0).forEach(s=>{
     const tab=document.createElement("div"); tab.className="tab"+(filters.stage===s?" active":"");
     tab.style.setProperty("--tab-color", stageColor(s)); tab.innerHTML=`${s} <span class="n">${byStage[s]}</span>`;
     tab.addEventListener("click", ()=>setStage(s)); stageTabbar.appendChild(tab);
@@ -1296,7 +1284,7 @@ function renderChatbots(){
   const allTypeTab=document.createElement("div"); allTypeTab.className="tab"+(filters.type==="All"?" active":"");
   allTypeTab.style.setProperty("--tab-color","var(--accent)"); allTypeTab.innerHTML=`All <span class="n">${scopedTotal}</span>`;
   allTypeTab.addEventListener("click", ()=>setType("All")); typeTabbar.appendChild(allTypeTab);
-  effTypeOrder.forEach(t=>{
+  effTypeOrder.filter(t=>byType[t]>0).forEach(t=>{
     const tab=document.createElement("div"); tab.className="tab"+(filters.type===t?" active":"");
     tab.style.setProperty("--tab-color","var(--teal)"); tab.innerHTML=`${t} <span class="n">${byType[t]}</span>`;
     tab.addEventListener("click", ()=>setType(t)); typeTabbar.appendChild(tab);
@@ -1305,7 +1293,7 @@ function renderChatbots(){
   // AI enabled chips
   const byAI = { All: scopedTotal, Yes: scoped.filter(p=>p.aiEnabled==="Yes").length, No: scoped.filter(p=>p.aiEnabled==="No").length };
   const aiChips=document.getElementById("aiEnabledChips"); aiChips.innerHTML="";
-  ["All","Yes","No"].forEach(v=>{
+  ["All","Yes","No"].filter(v=>v==="All"||byAI[v]>0).forEach(v=>{
     const chip=document.createElement("div"); chip.className="tab"+(filters.aiEnabled===v?" active":"");
     chip.style.setProperty("--tab-color","var(--accent)"); chip.innerHTML=`${v} <span class="n">${byAI[v]}</span>`;
     chip.addEventListener("click", ()=>setAIEnabled(v)); aiChips.appendChild(chip);
@@ -1314,7 +1302,7 @@ function renderChatbots(){
   // vendor chips
   const byVendor={}; [...new Set(PROJECTS.map(p=>p.vendor).filter(Boolean))].forEach(v=>byVendor[v]=scoped.filter(p=>p.vendor===v).length);
   const vendorChips=document.getElementById("vendorChips"); vendorChips.innerHTML="";
-  Object.keys(byVendor).forEach(v=>{
+  Object.keys(byVendor).filter(v=>byVendor[v]>0).sort((a,b)=>a.localeCompare(b)).forEach(v=>{
     const chip=document.createElement("div"); chip.className="chip"+(filters.vendor===v?" active":"");
     chip.style.setProperty("--chip-color", vendorColor(v)); chip.innerHTML=`${v} <b>${byVendor[v]}</b>`;
     chip.addEventListener("click", ()=>toggleVendor(v)); vendorChips.appendChild(chip);

@@ -586,6 +586,7 @@ const TAB_CONSUMABLE = "Consumable";
 const TAB_CLIENTLIST = "Client List";
 const TAB_REVIEW = "Review Queue";
 const REFRESH_MS = 60000;
+const CONSOLE_PROJECTS_URL = "https://project-monitoring-console.vercel.app/api/shared-projects";
 
 /* ---------------- Taxonomy (literal — mirrors the sheet's own Status / Bot Type text) ----------------
    Tabs show the exact Status / Bot Type strings from the sheet (no relabeling/bucketing), so a
@@ -711,6 +712,7 @@ async function fetchSheetRows(sheetName){
 async function syncData(){
   setSyncState("connecting");
   try{
+    const consoleFeedPromise = fetch(CONSOLE_PROJECTS_URL,{cache:"no-store"}).then(r=>r.ok?r.json():Promise.reject(new Error("Console feed unavailable"))).catch(()=>({projects:[]}));
     const [proj, rm, commercialSheet] = await Promise.all([
       fetchSheetRows(TAB_PROJECTS), fetchSheetRows(TAB_CHATBOTRM), fetchSheetRows(TAB_COMMERCIALS)
     ]);
@@ -768,6 +770,20 @@ async function syncData(){
       });
       if(cDelay>-1 && (r[cDelay]||"").trim().toLowerCase().startsWith("delayed")) delayed++;
     }
+
+    // Merge the private console's sanitized project feed into the Sheet data. The Sheet remains
+    // authoritative for its populated fields; console-only Gmail projects are appended, while
+    // go-live and latest-stage updates fill gaps until the Sheet automation catches up.
+    const consoleFeed = await consoleFeedPromise;
+    const identity = (client,project)=>`${client||""} ${project||""}`.toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+    const projectIndex = new Map(newProjects.map((project,index)=>[identity(project.client,project.chatbot),index]));
+    (consoleFeed.projects||[]).forEach(item=>{
+      if(!item.client||!item.project)return;
+      const key=identity(item.client,item.project),found=projectIndex.get(key),liveDate=parseDate(item.actualGoLive);
+      if(found!==undefined){const current=newProjects[found];if(liveDate&&!current.dates.liveDate)current.dates.liveDate=liveDate;if(item.stage&&(!current.status||/review|requirement/i.test(current.status)))current.status=item.stage;if(item.vendor&&!current.vendor)current.vendor=item.vendor;current.stage=toStage(current.status);return;}
+      const added={client:item.client,chatbot:item.project,platform:item.channel||"",vendor:item.vendor||"",status:liveDate?"Live":item.stage||"To review",aiEnabled:"",stage:liveDate?"Live":toStage(item.stage||""),type:toType(item.channel||""),dates:{brief:null,comm:null,dev:null,test:null,liveDate,paused:null},daysToGoLive:"",delayFlag:"",delayComment:"",industry:"",subIndustry:"",source:"Project Monitoring Console"};
+      projectIndex.set(key,newProjects.length);newProjects.push(added);
+    });
 
     const rmHeaderIdx = rmRows.findIndex(r => (r[1]||"").trim() === "Chatbot");
     const newCommercials = [];

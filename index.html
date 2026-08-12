@@ -1135,6 +1135,14 @@ function projectMatchesTime(p, ts, start, end){
   const dates = p.dates || {};
   return Object.values(dates).some(d => d && d>=start && d<=end && inMonthSet(ts, d));
 }
+// Milestone cards normally show every project that reached that milestone in the selected
+// period. UAT is the exception: once a project advances to Live it belongs under Went Live,
+// and must not reappear when the user clicks the UAT Started card.
+function milestoneMatchesProject(p, key, start, end){
+  const d = p.dates && p.dates[key];
+  return !!d && d>=start && d<=end && inMonthSet(timeChat, d) &&
+    (key!=="test" || p.stage==="UAT");
+}
 // Base set for the "Filter Records" zone (Stage/Type/AI/Vendor chip counts, donut) — scoped by
 // the FY Year and Industry filters (the two dropdowns above the chip zone) but NOT by the chips
 // themselves, so every chip can still show how many records it would match.
@@ -1153,7 +1161,7 @@ function filteredProjects(){
     (filters.aiEnabled==="All" || p.aiEnabled===filters.aiEnabled) &&
     (filters.industries.size===0 || filters.industries.has(industryOf(p))) &&
     (!filters.delayedOnly || (p.delayFlag||"").toLowerCase().startsWith("delayed")) &&
-    (!filters.milestone || (p.dates[filters.milestone] && p.dates[filters.milestone]>=start && p.dates[filters.milestone]<=end && inMonthSet(timeChat,p.dates[filters.milestone])))
+    (!filters.milestone || milestoneMatchesProject(p, filters.milestone, start, end))
   );
 }
 function focusRecords(){ const el=document.getElementById("records"); el.scrollIntoView({behavior:"smooth",block:"start"}); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
@@ -1213,7 +1221,7 @@ function renderChatbots(){
     {l:"Briefs Received", key:"brief", n:PROJECTS.filter(p=>inPeriod(p.dates.brief)).length},
     {l:"Commercials Shared", key:"comm", n:PROJECTS.filter(p=>inPeriod(p.dates.comm)).length},
     {l:"Development Started", key:"dev", n:PROJECTS.filter(p=>inPeriod(p.dates.dev)).length},
-    {l:"UAT Started", key:"test", n:PROJECTS.filter(p=>inPeriod(p.dates.test)).length},
+    {l:"UAT Started", key:"test", n:PROJECTS.filter(p=>milestoneMatchesProject(p,"test",start,end)).length},
     {l:"Went Live", key:"liveDate", n:PROJECTS.filter(p=>inPeriod(p.dates.liveDate)).length},
   ];
   const psEl = document.getElementById("periodStats"); psEl.innerHTML="";

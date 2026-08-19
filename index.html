@@ -1321,6 +1321,20 @@ function renderChatbots(){
     if(days<=3) return {days:`${days} days remaining`,status:"Due soon"};
     return {days:`${days} days remaining`,status:"On track"};
   };
+  const delayTiming = p => {
+    if(p.dates.targetLive){
+      const target=new Date(p.dates.targetLive); target.setHours(0,0,0,0);
+      const end=p.dates.liveDate ? new Date(p.dates.liveDate) : new Date(); end.setHours(0,0,0,0);
+      const days=Math.max(0,Math.ceil((end-target)/86400000));
+      return days===1 ? "1 day delayed" : `${days} days delayed`;
+    }
+    const entered=String(p.daysToGoLive||"").match(/-?\d+/);
+    if(entered && Number(entered[0])<0){
+      const days=Math.abs(Number(entered[0]));
+      return days===1 ? "1 day delayed" : `${days} days delayed`;
+    }
+    return "Delay days not available";
+  };
   const STAGE_EXTRA_COLS = {
     "Live": [{header:"Went Live On",cell:p=>p.dates.liveDate ? fmtD(p.dates.liveDate) : "—"}],
     "Development": [
@@ -1336,7 +1350,10 @@ function renderChatbots(){
     "Paused": [{header:"Paused On",cell:p=>p.dates.paused ? fmtD(p.dates.paused) : "Date not entered"}],
   }[filters.stage] || [];
   const EXTRA_COLS = filters.delayedOnly
-    ? [{header:"Delay Reason / Comment",cell:p=>p.delayComment||"Reason not entered in sheet"}]
+    ? [
+      {header:"Delay Days",cell:p=>delayTiming(p)},
+      {header:"Delay Reason / Comment",cell:p=>p.delayComment||"Reason not entered in sheet"}
+    ]
     : filters.milestone
       ? [{header:"Relevant Date",cell:p=>p.dates[filters.milestone]?fmtD(p.dates[filters.milestone]):"—"}]
       : STAGE_EXTRA_COLS;

@@ -735,7 +735,8 @@ async function syncData(){
     // NOTE: Industry/Sub Industry were moved to sit right after Chatbot (before Sales Connect)
     // in the sheet, which shifted every column below by +2 — updated to match.
     const cClient=0, cChatbot=1, cPlatform=5, cAIEnabled=6, cVendor=7, cStatus=8,
-          cBrief=9, cComm=10, cDev=13, cTest=14, cTargetLive=15, cActualLive=16, cDaysToGo=19;
+          cBrief=9, cComm=10, cDev=13, cTest=14, cActualLive=16,
+          cCommittedLive=17, cUpdatedLive=18, cDaysToGo=19;
     // Industry / Sub Industry are plain-text headers (no date/number format applied), so
     // header-name lookup is reliable here even though the columns above use fixed positions.
     const pHeaderRow = projRows[pHeaderIdx];
@@ -758,7 +759,7 @@ async function syncData(){
         client, chatbot, platform, vendor:toVendor(r[cVendor]), status,
         aiEnabled: (r[cAIEnabled]||"").trim(),
         stage: toStage(status), type: toType(platform),
-        dates:{ brief:parseDate(r[cBrief]), comm:parseDate(r[cComm]), dev:parseDate(r[cDev]), test:parseDate(r[cTest]), targetLive:parseDate(r[cTargetLive]), liveDate:parseDate(r[cActualLive]), paused: cPaused>-1?parseDate(r[cPaused]):null },
+        dates:{ brief:parseDate(r[cBrief]), comm:parseDate(r[cComm]), dev:parseDate(r[cDev]), test:parseDate(r[cTest]), targetLive:parseDate(r[cUpdatedLive])||parseDate(r[cCommittedLive]), liveDate:parseDate(r[cActualLive]), paused: cPaused>-1?parseDate(r[cPaused]):null },
         daysToGoLive: (r[cDaysToGo]||"").toString().trim(),
         delayFlag: cDelay>-1 ? (r[cDelay]||"").toString().trim() : "",
         delayComment: cDelayComment>-1 ? (r[cDelayComment]||"").toString().trim() : "",

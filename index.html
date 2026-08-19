@@ -1359,6 +1359,7 @@ function renderChatbots(){
   }[filters.stage] || [];
   const EXTRA_COLS = filters.delayedOnly
     ? [
+      {header:"Actual Live Date",cell:p=>p.dates.liveDate ? fmtD(p.dates.liveDate) : "Not live yet"},
       {header:"Delay Days",cell:p=>delayTiming(p)},
       {header:"Delay Reason / Comment",cell:p=>p.delayComment||"Reason not entered in sheet"}
     ]

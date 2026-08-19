@@ -434,32 +434,25 @@
         <button type="button" id="industryBtnCons" class="ms-btn">All industries</button>
         <div id="industryPanelCons" class="ms-panel" style="display:none;"></div>
       </div>
+      <div class="tf-group">
+        <label>Client</label>
+        <select id="clientSelCons" style="min-width:260px;"><option value="">Select a client</option></select>
+      </div>
       <div class="period-label" id="periodLabelCons"></div>
     </div>
 
-    <div class="rev-layout">
+    <div class="rev-layout" style="grid-template-columns:1fr;">
       <div class="rev-main">
-        <div class="panel">
-          <h2>Consumable Revenue &amp; Margin by Client <small>click a row to filter the records below · Month within selected period</small></h2>
-          <table class="rev"><thead><tr><th>Client</th><th style="text-align:right">Revenue</th><th style="text-align:right">Cost</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="consByClient"></tbody></table>
-        </div>
         <section id="recordsCons">
           <div class="records-head">
-            <div class="records-title"><h2>Consumable Records in Period</h2><div class="breadcrumbs" id="breadcrumbsCons"></div></div>
+            <div class="records-title"><h2>Client Consumable — Month-wise</h2><div class="breadcrumbs" id="breadcrumbsCons"></div></div>
             <div class="rec-count" id="recCountCons"></div>
           </div>
           <div class="records-body">
-            <table class="data"><thead><tr><th>Client</th><th>Month</th><th style="text-align:right">Revenue</th><th style="text-align:right">Cost</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="consRecordsBody"></tbody></table>
+            <table class="data"><thead><tr><th>Month</th><th style="text-align:right">Revenue</th><th style="text-align:right">Cost</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="consRecordsBody"></tbody><tfoot id="consTotalRow"></tfoot></table>
           </div>
         </section>
       </div>
-
-      <aside class="rev-side">
-        <div class="panel">
-          <h2>Monthly Revenue &amp; Margin <small>all history</small></h2>
-          <table class="rev"><thead><tr><th>Month</th><th style="text-align:right">Revenue</th><th style="text-align:right">Margin</th><th style="text-align:right">Margin %</th></tr></thead><tbody id="monthlyConsBody"></tbody></table>
-        </div>
-      </aside>
     </div>
   </section>
 
@@ -1857,7 +1850,7 @@ function renderAll(){
 
 /* ---------------- Render: Consumable page (mirrors Chatbots R&M, keyed by Client + Month) ---------------- */
 const consFilter = { client:null, industries: new Set() };
-function setConsClient(cl){ consFilter.client = (consFilter.client===cl) ? null : cl; renderConsumable(); }
+function setConsClient(cl){ consFilter.client = cl || null; renderConsumable(); }
 
 function renderConsumable(){
   refreshYearMonthUI("Cons", timeCons);
@@ -1872,9 +1865,16 @@ function renderConsumable(){
   // letting the by-Client table show every client in that industry so you can click to pick one.
   const industryScoped = inPeriod.filter(c => consFilter.industries.size===0 || consFilter.industries.has(industryOf(c)));
   const filteredPeriod = industryScoped.filter(c => (!consFilter.client || c.client===consFilter.client));
+  const clientSelect=document.getElementById("clientSelCons");
+  const availableClients=[...new Set(industryScoped.map(c=>c.client).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  if(consFilter.client && !availableClients.includes(consFilter.client)) consFilter.client=null;
+  clientSelect.innerHTML='<option value="">Select a client</option>'+availableClients.map(client=>`<option value="${client.replace(/"/g,"&quot;")}">${client}</option>`).join("");
+  clientSelect.value=consFilter.client||"";
+  clientSelect.onchange=e=>setConsClient(e.target.value);
 
-  const totalRev = industryScoped.reduce((a,r)=>a+r.revenue,0);
-  const totalCost = industryScoped.reduce((a,r)=>a+r.cost,0);
+  const kpiScope=consFilter.client ? filteredPeriod : industryScoped;
+  const totalRev = kpiScope.reduce((a,r)=>a+r.revenue,0);
+  const totalCost = kpiScope.reduce((a,r)=>a+r.cost,0);
   const totalMargin = totalRev-totalCost;
   const marginPct = totalRev ? ((totalMargin/totalRev)*100).toFixed(1) : "0.0";
 
@@ -1883,65 +1883,41 @@ function renderConsumable(){
     {label:"Revenue", value:fmtCompact(totalRev), hint:timeCons.view+" view", color:"var(--live)"},
     {label:"Cost", value:fmtCompact(totalCost), hint:timeCons.view+" view", color:"var(--delay)"},
     {label:"Margin", value:fmtCompact(totalMargin), hint:"margin % "+marginPct+"%", color:"var(--cs-teal)"},
-    {label:"Billing Records", value:industryScoped.length, hint:"in selected period", color:"var(--text)"},
+    {label:"Billing Records", value:kpiScope.length, hint:consFilter.client?consFilter.client:"in selected period", color:"var(--text)"},
   ].forEach(k=>{
     const el=document.createElement("div"); el.className="kpi"; el.style.setProperty("--kpi-color",k.color);
     el.innerHTML=`<div class="label">${k.label}</div><div class="value">${k.value}</div><div class="hint">${k.hint}</div>`;
     kRow.appendChild(el);
   });
 
-  const byClient={};
-  industryScoped.forEach(c=>{ if(!byClient[c.client]) byClient[c.client]={revenue:0,cost:0,margin:0}; byClient[c.client].revenue+=c.revenue; byClient[c.client].cost+=c.cost; byClient[c.client].margin+=c.margin; });
-  const consByClient=document.getElementById("consByClient"); consByClient.innerHTML="";
-  const clientKeys = Object.keys(byClient).sort((a,b)=>byClient[b].revenue-byClient[a].revenue);
-  clientKeys.forEach(cl=>{
-    const d=byClient[cl]; const pct = d.revenue ? ((d.margin/d.revenue)*100).toFixed(1) : "0.0";
-    const tr=document.createElement("tr");
-    tr.className = consFilter.client===cl ? "active-row" : "";
-    tr.innerHTML=`<td>${cl}</td><td class="num">${fmtINR(d.revenue)}</td>
-      <td class="num">${fmtINR(d.cost)}</td><td class="num">${fmtINR(d.margin)}</td><td class="num">${pct}%</td>`;
-    tr.addEventListener("click", ()=>setConsClient(cl));
-    consByClient.appendChild(tr);
-  });
-  if(clientKeys.length===0) consByClient.innerHTML=`<tr><td colspan="5"><div class="empty-state">No consumable billing in this period.</div></td></tr>`;
-
   const crumbsCons=document.getElementById("breadcrumbsCons"); crumbsCons.innerHTML="";
   if(consFilter.client) crumbsCons.appendChild(makeCrumb("Client: "+consFilter.client, ()=>setConsClient(consFilter.client)));
   if(consFilter.industries.size>0) crumbsCons.appendChild(makeCrumb("Industry: "+industryBtnLabel(consFilter), ()=>clearIndustryFilter("Cons", consFilter, ()=>renderConsumable())));
 
   const body=document.getElementById("consRecordsBody"); body.innerHTML="";
-  const sortedRecords = [...filteredPeriod].sort((a,b)=>b.month-a.month);
-  if(sortedRecords.length===0){ body.innerHTML=`<tr><td colspan="6"><div class="empty-state">No consumable records match this filter.</div></td></tr>`; }
+  const totalRow=document.getElementById("consTotalRow"); totalRow.innerHTML="";
+  const monthlyMap={};
+  if(consFilter.client) filteredPeriod.forEach(row=>{
+    const key=row.month.getFullYear()+"-"+String(row.month.getMonth()+1).padStart(2,"0");
+    if(!monthlyMap[key]) monthlyMap[key]={month:row.month,revenue:0,cost:0,margin:0};
+    monthlyMap[key].revenue+=row.revenue; monthlyMap[key].cost+=row.cost; monthlyMap[key].margin+=row.margin;
+  });
+  const sortedRecords = Object.values(monthlyMap).sort((a,b)=>a.month-b.month);
+  if(!consFilter.client){ body.innerHTML=`<tr><td colspan="5"><div class="empty-state">Select a client above to view its month-wise consumable details.</div></td></tr>`; }
+  else if(sortedRecords.length===0){ body.innerHTML=`<tr><td colspan="5"><div class="empty-state">No consumable records match this filter.</div></td></tr>`; }
   else sortedRecords.forEach(r=>{
     const pct = r.revenue ? ((r.margin/r.revenue)*100).toFixed(1) : "0.0";
     const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${r.client}</td><td>${monthLabel(r.month)}</td><td class="num">${fmtINR(r.revenue)}</td>
+    tr.innerHTML=`<td>${monthLabel(r.month)}</td><td class="num">${fmtINR(r.revenue)}</td>
       <td class="num">${fmtINR(r.cost)}</td><td class="num">${fmtINR(r.margin)}</td><td class="num">${pct}%</td>`;
     body.appendChild(tr);
   });
+  if(consFilter.client && sortedRecords.length){
+    const rev=sortedRecords.reduce((sum,row)=>sum+row.revenue,0),cost=sortedRecords.reduce((sum,row)=>sum+row.cost,0),margin=rev-cost,pct=rev?(margin/rev*100).toFixed(1):"0.0";
+    totalRow.innerHTML=`<tr style="font-weight:800;border-top:2px solid var(--text);"><td>Total — ${consFilter.client}</td><td class="num">${fmtINR(rev)}</td><td class="num">${fmtINR(cost)}</td><td class="num">${fmtINR(margin)}</td><td class="num">${pct}%</td></tr>`;
+  }
   document.getElementById("recCountCons").textContent = sortedRecords.length + (sortedRecords.length===1?" record":" records");
 
-  renderConsMonthlyTrend();
-}
-
-/* ---------------- Render: Monthly Consumable Revenue & Margin (side panel, all history) ---------------- */
-function renderConsMonthlyTrend(){
-  const byMonth = {};
-  CONSUMABLE.forEach(c=>{
-    if(!c.month) return;
-    const key = c.month.getFullYear()+"-"+String(c.month.getMonth()+1).padStart(2,"0");
-    if(!byMonth[key]) byMonth[key] = { revenue:0, margin:0, label: monthLabel(c.month) };
-    byMonth[key].revenue += c.revenue; byMonth[key].margin += c.margin;
-  });
-  const keys = Object.keys(byMonth).sort().reverse();
-  const tbody = document.getElementById("monthlyConsBody"); tbody.innerHTML="";
-  if(keys.length===0){ tbody.innerHTML=`<tr><td colspan="4"><div class="empty-state">No consumable billing yet.</div></td></tr>`; return; }
-  keys.forEach(k=>{
-    const d = byMonth[k]; const pct = d.revenue ? ((d.margin/d.revenue)*100).toFixed(1) : "0.0";
-    const tr=document.createElement("tr");
-    tr.innerHTML=`<td>${d.label}</td><td class="num">${fmtINR(d.revenue)}</td><td class="num">${fmtINR(d.margin)}</td><td class="num">${pct}%</td>`;
-    tbody.appendChild(tr);
-  });
 }
 
 /* ---------------- Deep-link: ?month=YYYY-MM opens straight to that month's projects ---------------- */

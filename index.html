@@ -698,7 +698,19 @@ function tableToRows(table){
   }));
 }
 function colIndexer(headerRow){ const idx={}; headerRow.forEach((h,i)=>{ if(h) idx[h.trim()]=i; }); return name=>idx[name]; }
-function parseDate(s){ if(!s) return null; const d = new Date(s); return isNaN(d) ? null : d; }
+function parseDate(s){
+  if(!s) return null;
+  if(s instanceof Date) return isNaN(s) ? null : s;
+  const raw=String(s).trim();
+  const gviz=raw.match(/^Date\((\d{4}),(\d{1,2}),(\d{1,2})/);
+  if(gviz) return new Date(+gviz[1],+gviz[2],+gviz[3]);
+  const indian=raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(indian) return new Date(+indian[3],+indian[2]-1,+indian[1]);
+  // Plain durations such as 7 or 30 are not calendar dates.
+  if(/^[-+]?\d+(\.\d+)?$/.test(raw)) return null;
+  const d=new Date(raw);
+  return isNaN(d) ? null : d;
+}
 function simpleHash(str){ let h=0; for(let i=0;i<str.length;i++){ h=(h*31+str.charCodeAt(i))|0; } return h; }
 
 async function fetchSheetRows(sheetName){

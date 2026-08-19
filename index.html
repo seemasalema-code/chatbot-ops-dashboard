@@ -467,11 +467,11 @@
       </div>
       <div class="tf-group" style="flex:1; min-width:280px; position:relative;">
         <label>Client</label>
-        <button type="button" id="csClientBtn" class="ms-btn" style="min-width:240px;">All clients</button>
+        <button type="button" id="csClientBtn" class="ms-btn" style="min-width:240px;">Select a client</button>
         <div id="csClientPanel" class="ms-panel" style="display:none; min-width:300px;">
           <input type="text" id="csClientSearch" placeholder="Search clients…" autocomplete="off"
             style="width:100%; margin-bottom:8px; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-family:'Lexend',sans-serif; font-size:12.5px; color:var(--text);">
-          <label class="ms-all"><input type="checkbox" id="csClientAll" checked> All clients</label>
+          <label class="ms-all"><input type="checkbox" id="csClientAll" checked> Clear client selection</label>
           <div id="csClientList"></div>
         </div>
       </div>
@@ -483,7 +483,8 @@
       <button id="csClearBtn" style="border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-family:'Lexend',sans-serif; font-weight:600; font-size:12px; padding:8px 14px; border-radius:20px; cursor:pointer;">Clear</button>
     </div>
 
-    <div id="csContent" style="margin-top:16px;">
+    <div id="csEmpty" class="panel" style="margin-top:16px;"><div class="empty-state">Select a client above to view its month-wise summary.</div></div>
+    <div id="csContent" style="margin-top:16px; display:none;">
       <div class="panel cs-card cs-card-total">
         <div class="cs-group-title">Total (Commercials + Consumable)</div>
         <div class="cs-stat-grid cs-stat-grid-4">
@@ -544,13 +545,14 @@
                   <th style="text-align:right">MoM</th>
                 </tr></thead>
                 <tbody id="csMonthlyBody"></tbody>
+                <tfoot id="csMonthlyTotal"></tfoot>
               </table>
             </div>
           </div>
         </aside>
       </div>
 
-      <section id="recordsCs" style="margin-top:16px;">
+      <section id="recordsCs" style="margin-top:16px; display:none;">
         <div class="records-head">
           <div class="records-title"><h2>Clients in Period <small>click a Monthly Breakdown row to drill into that month</small></h2><div class="breadcrumbs" id="breadcrumbsCs"></div></div>
           <div class="rec-count" id="recCountCs"></div>
@@ -1563,9 +1565,9 @@ function updateCsMonthBtn(){
 
 function updateCsClientBtn(){
   const btn = document.getElementById("csClientBtn");
-  if(csFilter.clients.size===0){ btn.textContent = "All clients"; return; }
+  if(csFilter.clients.size===0){ btn.textContent = "Select a client"; return; }
   const sel = [...csFilter.clients];
-  btn.textContent = sel.length===1 ? sel[0] : `${sel.length} clients selected`;
+  btn.textContent = sel[0];
 }
 
 function populateCsFilters(){
@@ -1617,7 +1619,9 @@ function populateCsFilters(){
     listEl.querySelectorAll(".cs-client-cb").forEach(cb=>{
       cb.checked = csFilter.clients.has(cb.value);
       cb.addEventListener("change", ()=>{
-        if(cb.checked) csFilter.clients.add(cb.value); else csFilter.clients.delete(cb.value);
+        csFilter.clients.clear();
+        listEl.querySelectorAll(".cs-client-cb").forEach(other=>{ if(other!==cb) other.checked=false; });
+        if(cb.checked) csFilter.clients.add(cb.value);
         document.getElementById("csClientAll").checked = csFilter.clients.size===0;
         updateCsClientBtn();
         renderClientSummary();
@@ -1692,6 +1696,7 @@ document.getElementById("csBreakdownTabs").addEventListener("click", e=>{
 
 function renderCsBreakdownTable(yearRows){
   const tbody = document.getElementById("csMonthlyBody"); tbody.innerHTML="";
+  const totalRow = document.getElementById("csMonthlyTotal"); totalRow.innerHTML="";
   const keyMap = { total:["totRev","totCost","totMargin"], comm:["commRev","commCost","commMargin"], cons:["consRev","consCost","consMargin"] };
   const [revKey,costKey,marginKey] = keyMap[csBreakdownView];
   if(yearRows.length===0){
@@ -1717,6 +1722,8 @@ function renderCsBreakdownTable(yearRows){
     });
     tbody.appendChild(tr);
   });
+  const rev=yearRows.reduce((sum,row)=>sum+row[revKey],0),cost=yearRows.reduce((sum,row)=>sum+row[costKey],0),margin=yearRows.reduce((sum,row)=>sum+row[marginKey],0);
+  totalRow.innerHTML=`<tr style="font-weight:800;border-top:2px solid var(--text);"><td>Total</td><td class="num">${fmtCompact(rev)}</td><td class="num">${fmtCompact(cost)}</td><td class="num">${fmtCompact(margin)}</td><td>—</td></tr>`;
 }
 
 // Client-level breakdown for the currently scoped filters (Year/Month/Client/Industry), or — if a
@@ -1777,14 +1784,18 @@ function renderCsRecords(){
 
 function renderClientSummary(){
   populateCsFilters();
+  const hasClient=csFilter.clients.size===1;
+  document.getElementById("csEmpty").style.display=hasClient?"none":"block";
+  document.getElementById("csContent").style.display=hasClient?"block":"none";
+  if(!hasClient) return;
 
-  const rowsAll = buildClientMonthly(effectiveCsClients(), csFilter.clients.size===0 && csFilter.industries.size===0);
+  const rowsAll = buildClientMonthly(effectiveCsClients(), false);
   const yearRows = csFilter.year==="All" ? rowsAll : rowsAll.filter(r=>fiscalYear(r.date)===+csFilter.year);
   // KPI cards respect financial Year (Apr-Mar), selected Month(s) and Client; the monthly
   // table/trend below only respects Year (+ Client), so the growth-over-time picture stays
   // intact even when specific months are selected up top.
   const scoped = csFilter.months.size===0 ? yearRows : yearRows.filter(r=> csFilter.months.has(r.date.getMonth()+1));
-  window.__csYearRows = yearRows;
+  window.__csYearRows = scoped;
 
   const sum = (arr,key) => arr.reduce((a,r)=>a+r[key],0);
   const commRev=sum(scoped,"commRev"), commCost=sum(scoped,"commCost"), commMargin=commRev-commCost;
@@ -1805,20 +1816,19 @@ function renderClientSummary(){
   document.getElementById("csTotMargin").innerHTML = fmtCompact(totMargin);
   document.getElementById("csTotMarginPct").textContent = marginPct(totMargin, totRev);
 
-  renderCsBreakdownTable(yearRows);
-  renderCsRecords();
+  renderCsBreakdownTable(scoped);
 
   // Growth trend — chronological bar chart of Total Revenue for the selected Year (or all history),
   // colored green when a month is up on the previous month and red when it's down.
   const chart = document.getElementById("csTrendChart"); chart.innerHTML = "";
   const summaryEl = document.getElementById("csTrendSummary");
-  if(yearRows.length < 2){
+  if(scoped.length < 2){
     summaryEl.textContent = "Not enough months of data yet to show a trend.";
   } else {
     let ups=0, downs=0;
-    const maxRev = Math.max(1, ...yearRows.map(r=>r.totRev));
-    yearRows.forEach((r,i)=>{
-      const prev = yearRows[i-1];
+    const maxRev = Math.max(1, ...scoped.map(r=>r.totRev));
+    scoped.forEach((r,i)=>{
+      const prev = scoped[i-1];
       const pct = prev && prev.totRev ? ((r.totRev-prev.totRev)/prev.totRev*100) : null;
       if(pct!==null){ if(pct>=0) ups++; else downs++; }
       const color = pct===null ? "var(--cs-teal)" : (pct>=0 ? "var(--live)" : "var(--delay)");
@@ -1828,7 +1838,7 @@ function renderClientSummary(){
         <div class="td ${pct===null?"trend-flat":(pct>=0?"trend-up":"trend-down")}">${pct===null?fmtINR(r.totRev):(pct>=0?"▲ ":"▼ ")+Math.abs(pct).toFixed(1)+"%"}</div>`;
       chart.appendChild(row);
     });
-    const first = yearRows[0], last = yearRows[yearRows.length-1];
+    const first = scoped[0], last = scoped[scoped.length-1];
     const overallPct = first.totRev ? ((last.totRev-first.totRev)/first.totRev*100) : null;
     const trendWord = overallPct===null ? "flat" : (overallPct>=0 ? "positive" : "negative");
     const trendClass = overallPct===null ? "trend-flat" : (overallPct>=0 ? "trend-up" : "trend-down");

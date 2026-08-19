@@ -740,7 +740,7 @@ async function syncData(){
     // NOTE: Industry/Sub Industry were moved to sit right after Chatbot (before Sales Connect)
     // in the sheet, which shifted every column below by +2 — updated to match.
     const cClient=0, cChatbot=1, cPlatform=5, cAIEnabled=6, cVendor=7, cStatus=8,
-          cBrief=9, cComm=10, cDev=13, cTest=14, cActualLive=16, cDaysToGo=19;
+          cBrief=9, cComm=10, cDev=13, cTest=14, cTargetLive=15, cActualLive=16, cDaysToGo=19;
     // Industry / Sub Industry are plain-text headers (no date/number format applied), so
     // header-name lookup is reliable here even though the columns above use fixed positions.
     const pHeaderRow = projRows[pHeaderIdx];
@@ -763,7 +763,7 @@ async function syncData(){
         client, chatbot, platform, vendor:toVendor(r[cVendor]), status,
         aiEnabled: (r[cAIEnabled]||"").trim(),
         stage: toStage(status), type: toType(platform),
-        dates:{ brief:parseDate(r[cBrief]), comm:parseDate(r[cComm]), dev:parseDate(r[cDev]), test:parseDate(r[cTest]), liveDate:parseDate(r[cActualLive]), paused: cPaused>-1?parseDate(r[cPaused]):null },
+        dates:{ brief:parseDate(r[cBrief]), comm:parseDate(r[cComm]), dev:parseDate(r[cDev]), test:parseDate(r[cTest]), targetLive:parseDate(r[cTargetLive]), liveDate:parseDate(r[cActualLive]), paused: cPaused>-1?parseDate(r[cPaused]):null },
         daysToGoLive: (r[cDaysToGo]||"").toString().trim(),
         delayFlag: cDelay>-1 ? (r[cDelay]||"").toString().trim() : "",
         delayComment: cDelayComment>-1 ? (r[cDelayComment]||"").toString().trim() : "",
@@ -1311,29 +1311,47 @@ function renderChatbots(){
   // records — Bot Type and Stage show the literal sheet values (Bot Type / Status columns),
   // not the normalized bucket labels used for tabs/colors.
   const rows=filteredProjects(); const recordsBody=document.getElementById("recordsBody"); recordsBody.innerHTML="";
-  const STAGE_EXTRA_COL = {
-    "Live":        {header:"Went Live On",   cell:p=>p.dates.liveDate ? fmtD(p.dates.liveDate) : "—"},
-    "Development": {header:"Days Remaining", cell:p=>p.daysToGoLive ? p.daysToGoLive : "—"},
-    "UAT":         {header:"In UAT Since",   cell:p=>p.dates.test ? fmtD(p.dates.test) : "—"},
-    "Paused":      {header:"Paused On",      cell:p=>p.dates.paused ? fmtD(p.dates.paused) : "Date not entered"},
-  }[filters.stage];
-  const EXTRA_COL = filters.delayedOnly
-    ? {header:"Delay Reason / Comment", cell:p=>p.delayComment||"Reason not entered in sheet"}
+  const developmentTiming = p => {
+    if(!p.dates.targetLive) return {days:"—",status:"Target live date not entered"};
+    const today=new Date(); today.setHours(0,0,0,0);
+    const target=new Date(p.dates.targetLive); target.setHours(0,0,0,0);
+    const days=Math.ceil((target-today)/86400000);
+    if(days<0) return {days:`${Math.abs(days)} days overdue`,status:"Delayed"};
+    if(days===0) return {days:"Due today",status:"Due today"};
+    if(days<=3) return {days:`${days} days remaining`,status:"Due soon"};
+    return {days:`${days} days remaining`,status:"On track"};
+  };
+  const STAGE_EXTRA_COLS = {
+    "Live": [{header:"Went Live On",cell:p=>p.dates.liveDate ? fmtD(p.dates.liveDate) : "—"}],
+    "Development": [
+      {header:"Target Live Date",cell:p=>p.dates.targetLive ? fmtD(p.dates.targetLive) : "Not entered"},
+      {header:"Days Remaining",cell:p=>developmentTiming(p).days},
+      {header:"Delivery Status",cell:p=>developmentTiming(p).status}
+    ],
+    "UAT": [
+      {header:"Target Live Date",cell:p=>p.dates.targetLive ? fmtD(p.dates.targetLive) : "Not entered"},
+      {header:"Days Remaining",cell:p=>developmentTiming(p).days},
+      {header:"Delivery Status",cell:p=>developmentTiming(p).status}
+    ],
+    "Paused": [{header:"Paused On",cell:p=>p.dates.paused ? fmtD(p.dates.paused) : "Date not entered"}],
+  }[filters.stage] || [];
+  const EXTRA_COLS = filters.delayedOnly
+    ? [{header:"Delay Reason / Comment",cell:p=>p.delayComment||"Reason not entered in sheet"}]
     : filters.milestone
-      ? {header:"Relevant Date", cell:p=>p.dates[filters.milestone]?fmtD(p.dates[filters.milestone]):"—"}
-      : STAGE_EXTRA_COL;
+      ? [{header:"Relevant Date",cell:p=>p.dates[filters.milestone]?fmtD(p.dates[filters.milestone]):"—"}]
+      : STAGE_EXTRA_COLS;
 
   const headRow = document.getElementById("recordsHeadRow");
-  headRow.innerHTML = `<th>Chatbot</th><th>Bot Type</th><th>Vendor</th><th>Stage</th>` + (EXTRA_COL ? `<th>${EXTRA_COL.header}</th>` : "");
+  headRow.innerHTML = `<th>Chatbot</th><th>Bot Type</th><th>Vendor</th><th>Stage</th>` + EXTRA_COLS.map(col=>`<th>${col.header}</th>`).join("");
 
-  if(rows.length===0){ recordsBody.innerHTML=`<tr><td colspan="${EXTRA_COL?5:4}"><div class="empty-state">No records match this filter.</div></td></tr>`; }
+  if(rows.length===0){ recordsBody.innerHTML=`<tr><td colspan="${4+EXTRA_COLS.length}"><div class="empty-state">No records match this filter.</div></td></tr>`; }
   else{
     rows.forEach(p=>{
       const c=stageColor(p.stage)||"#666F94"; const tr=document.createElement("tr");
       tr.innerHTML=`<td>${p.chatbot}</td><td>${p.platform||"—"}</td>
         <td><span class="vendor-tag" style="color:${vendorColor(p.vendor)}">${p.vendor||"—"}</span></td>
         <td><span class="status-pill" style="background:${c}1F; color:${c}"><span class="d" style="background:${c}"></span>${p.status||p.stage}</span></td>`
-        + (EXTRA_COL ? `<td>${EXTRA_COL.cell(p)}</td>` : "");
+        + EXTRA_COLS.map(col=>`<td>${col.cell(p)}</td>`).join("");
       recordsBody.appendChild(tr);
     });
   }

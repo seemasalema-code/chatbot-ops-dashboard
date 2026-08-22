@@ -1664,6 +1664,8 @@ function renderMonthlyTrend(periodRows){
 /* ---------------- Render: Client Summary page ---------------- */
 const csToday = new Date();
 const csFilter = { year:String(fiscalYear(csToday)), months:new Set([csToday.getMonth()+1]), clients:new Set(), industries: new Set() };
+let csInitialPeriodApplied = false;
+const CLIENT_SUMMARY_START = new Date(2026,3,1); // reporting begins 1 Apr 2026
 let csBreakdownView = "total";
 // Set when a row in the Monthly Breakdown table is clicked, to drill the new client-level
 // Records list (below) down into just that one month. Cleared via the ✕ on its breadcrumb or
@@ -1695,19 +1697,19 @@ function buildClientMonthly(selectedClients, isUnfiltered){
   const useAll = isUnfiltered !== undefined ? isUnfiltered : (!selectedClients || selectedClients.size===0);
   const map = {};
   COMMERCIALS.forEach(c=>{
-    if((!useAll && !selectedClients.has(c.client)) || !c.dateOfLive) return;
+    if((!useAll && !selectedClients.has(c.client)) || !c.dateOfLive || c.dateOfLive<CLIENT_SUMMARY_START) return;
     const k=monthKey(c.dateOfLive);
     if(!map[k]) map[k]={key:k, date:new Date(c.dateOfLive.getFullYear(),c.dateOfLive.getMonth(),1), commRev:0,commCost:0,waRev:0,waCost:0,rcsRev:0,rcsCost:0};
     map[k].commRev+=c.revenue; map[k].commCost+=c.cost;
   });
   CONSUMABLE.forEach(c=>{
-    if((!useAll && !selectedClients.has(c.client)) || !c.month) return;
+    if((!useAll && !selectedClients.has(c.client)) || !c.month || c.month<CLIENT_SUMMARY_START) return;
     const k=monthKey(c.month);
     if(!map[k]) map[k]={key:k, date:new Date(c.month.getFullYear(),c.month.getMonth(),1), commRev:0,commCost:0,waRev:0,waCost:0,rcsRev:0,rcsCost:0};
     map[k].waRev+=c.revenue; map[k].waCost+=c.cost;
   });
   RCS_CONSUMABLE.forEach(c=>{
-    if((!useAll && !selectedClients.has(c.client)) || !c.month) return;
+    if((!useAll && !selectedClients.has(c.client)) || !c.month || c.month<CLIENT_SUMMARY_START) return;
     const k=monthKey(c.month);
     if(!map[k]) map[k]={key:k, date:new Date(c.month.getFullYear(),c.month.getMonth(),1), commRev:0,commCost:0,waRev:0,waCost:0,rcsRev:0,rcsCost:0};
     map[k].rcsRev+=c.revenue; map[k].rcsCost+=c.cost;
@@ -1745,9 +1747,14 @@ function populateCsFilters(){
   CONSUMABLE.forEach(c=>{ if(c.month) years.add(fiscalYear(c.month)); });
   RCS_CONSUMABLE.forEach(c=>{ if(c.month) years.add(fiscalYear(c.month)); });
   const sortedYears = [...years].sort((a,b)=>b-a);
+  const currentFy = fiscalYear(new Date());
   const prevYear = yearSel.value || csFilter.year;
   yearSel.innerHTML = `<option value="All">All years</option>` + sortedYears.map(y=>`<option value="${y}">FY ${y}-${String(y+1).slice(-2)}</option>`).join("");
-  yearSel.value = (sortedYears.includes(+prevYear) || prevYear==="All") ? prevYear : "All";
+  if(!csInitialPeriodApplied && sortedYears.includes(currentFy)){
+    yearSel.value=String(currentFy); csInitialPeriodApplied=true;
+  } else {
+    yearSel.value = (sortedYears.includes(+prevYear) || prevYear==="All") ? prevYear : (sortedYears.includes(currentFy)?String(currentFy):"All");
+  }
   csFilter.year = yearSel.value;
 
   const panel = document.getElementById("csMonthPanel");
@@ -1797,6 +1804,7 @@ function populateCsFilters(){
       });
     });
   }
+  updateCsMonthBtn();
 }
 
 document.getElementById("csYear").addEventListener("change", e=>{ csFilter.year=e.target.value; renderClientSummary(); });
@@ -1901,7 +1909,7 @@ function renderCsBreakdownTable(yearRows){
 // "Records" list already present on the other three tabs, so Client Summary can also answer
 // "which clients made up this revenue and margin".
 function csDateInScope(d){
-  if(!d) return false;
+  if(!d || d<CLIENT_SUMMARY_START) return false;
   if(csSelectedMonthKey) return monthKey(d)===csSelectedMonthKey;
   if(csFilter.year!=="All" && fiscalYear(d)!==+csFilter.year) return false;
   if(csFilter.months.size>0 && !csFilter.months.has(d.getMonth()+1)) return false;

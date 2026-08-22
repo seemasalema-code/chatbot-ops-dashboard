@@ -104,6 +104,14 @@
   .weekly-change-block .none{font-size:11px; color:var(--text-faint);}
   .weekly-change-block.high h3{color:var(--live);}.weekly-change-block.low h3{color:var(--delay);}.weekly-change-block.new h3{color:var(--accent);}
   .weekly-change-block.new{background:#F5F2FF;border-color:#E4DCFB;}.weekly-change-block.high{background:#EFFAF5;border-color:#D3EFE1;}.weekly-change-block.low{background:#FFF3F2;border-color:#F6DAD7;}.weekly-change-block.action{background:#FFF9ED;border-color:#F2E3BE;}.weekly-change-block.action h3{color:#A86408;}
+  .period-finance-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:12px 0;}
+  .period-finance-card{border:1px solid var(--border);border-radius:12px;padding:12px 14px;background:#fff;}
+  .period-finance-card .label{font-size:10px;text-transform:uppercase;letter-spacing:.055em;color:var(--text-faint);font-weight:700;}
+  .period-finance-card .value{font-size:22px;line-height:1.2;font-weight:800;color:var(--text);margin-top:4px;}
+  .period-finance-card .hint{font-size:10.5px;color:var(--text-faint);margin-top:3px;}
+  .period-finance-card.expected{background:#F5F2FF;border-color:#E4DCFB;}.period-finance-card.expected .value{color:#6547D9;}
+  .period-finance-card.confirmed{background:#EFFAF5;border-color:#D3EFE1;}.period-finance-card.confirmed .value{color:#07835A;}
+  .period-finance-card.margin{background:#EEF8F8;border-color:#CDEBE9;}.period-finance-card.margin .value{color:#087E78;}
   #page-chatbots .kpi:nth-child(1),#page-revenue .kpi:nth-child(1){background:#F3F1FF;border-color:#E3DDFC;}
   #page-chatbots .kpi:nth-child(2),#page-revenue .kpi:nth-child(2){background:#EFFAF5;border-color:#D5EFE2;}
   #page-chatbots .kpi:nth-child(3),#page-revenue .kpi:nth-child(3){background:#FFF2F2;border-color:#F5DADB;}
@@ -112,7 +120,7 @@
   #page-chatbots .overview>.panel:first-child{background:#FAF7FF;border-color:#E8E0FA;}
   #page-chatbots .overview>.panel:last-child{background:#F7FBFF;border-color:#DDEAF5;}
   #page-revenue .panel,#page-revenue #recordsRev{background:#FCFDFF;border-color:#E1E5F1;}
-  @media(max-width:760px){.weekly-change-grid{grid-template-columns:1fr;}}
+  @media(max-width:760px){.weekly-change-grid,.period-finance-grid{grid-template-columns:1fr;}}
 
   .overview{display:grid; grid-template-columns:300px 1fr; gap:20px; margin-top:16px;}
   .panel{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; box-shadow:var(--shadow-sm);}
@@ -284,6 +292,10 @@
   .cs-empty{padding:70px 20px; text-align:center; color:var(--text-faint); font-family:'Lexend', sans-serif; font-size:13.5px;}
   .cs-groups-pair{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:16px;}
   .cs-groups-pair.cs-groups-three{grid-template-columns:repeat(3,minmax(0,1fr));}
+  .cs-groups-three .cs-stat-grid-4{grid-template-columns:repeat(2,minmax(0,1fr));}
+  .cs-groups-three .cs-card{padding:18px;overflow:hidden;}
+  .cs-groups-three .cs-stat{min-height:82px;display:flex;flex-direction:column;justify-content:center;min-width:0;}
+  .cs-groups-three .cs-stat .v{font-size:18px;white-space:nowrap;}
   @media(max-width:960px){ .cs-groups-pair{grid-template-columns:1fr;} }
   @media(max-width:1180px){ .cs-groups-pair.cs-groups-three{grid-template-columns:1fr;} }
   .cs-card{border:1.5px solid transparent; border-left-width:5px;}
@@ -296,6 +308,11 @@
   .cs-card-cons{background:#FDF3E4; border-color:#FBDFB1; border-left-color:#D97706;}
   .cs-card-cons .cs-stat{background:rgba(255,255,255,.7);}
   .cs-card-cons .cs-group-title{color:#B45309;}
+  .cs-card-rcs{background:#EEF9F4;border-color:#CDEBDD;border-left-color:#0F9A72;}
+  .cs-card-rcs .cs-stat{background:rgba(255,255,255,.72);}
+  .cs-card-rcs .cs-group-title{color:#087A5B;}
+  .cs-card-rcs .cs-stat.m-margin{background:#DDF4E9 !important;border-color:#BCE7D3 !important;}
+  .cs-card-rcs .cs-stat.m-marginpct{background:#CDECDD !important;border-color:#A9DDC5 !important;}
   .cs-group-title{font-weight:700; font-size:12px;}
   /* Soft pastel active state for the Monthly Breakdown tabs — no solid saturated fill. */
   #csBreakdownTabs .tab[data-view="total"].active{background:var(--cs-teal-soft); color:var(--cs-teal); box-shadow:none;}
@@ -596,7 +613,7 @@
             <div class="cs-stat m-marginpct"><div class="l">Margin %</div><div class="v" id="csWaMarginPct">—</div></div>
           </div>
         </div>
-        <div class="panel cs-card cs-card-cons">
+        <div class="panel cs-card cs-card-rcs">
           <div class="cs-group-title">RCS Consumables</div>
           <div class="cs-stat-grid cs-stat-grid-4">
             <div class="cs-stat m-rev"><div class="l">Revenue</div><div class="v" id="csRcsRev">—</div></div>
@@ -1443,6 +1460,37 @@ function renderChatbots(){
   const delayCell=p=>{const days=delayDays(p);return days===null?"—":`<b style="color:var(--delay)">-${days}</b>`;};
   const isDelayedProject=p=>/^delayed/i.test(String(p.delayFlag||""))||(!p.dates.liveDate&&developmentTiming(p).status==="Delayed");
 
+  // Reconstruct delay state at the selected date. This prevents today's blockers from
+  // appearing in an older daily or weekly report.
+  const dateOnly=d=>{const x=new Date(d);x.setHours(0,0,0,0);return x;};
+  const delayedAsOf=(p,asOf)=>{
+    if(!p.dates.targetLive) return false;
+    const point=dateOnly(asOf), target=dateOnly(p.dates.targetLive);
+    const brief=p.dates.brief?dateOnly(p.dates.brief):null;
+    const live=p.dates.liveDate?dateOnly(p.dates.liveDate):null;
+    return (!brief||brief<=point) && target<point && (!live||live>point);
+  };
+  const delayDaysAsOf=(p,asOf)=>p.dates.targetLive
+    ? Math.max(0,Math.floor((dateOnly(asOf)-dateOnly(p.dates.targetLive))/86400000))
+    : null;
+  const financialKey=s=>String(s||"").toLowerCase().replace(/\b(re|fw|fwd)\s*:/g,"").replace(/[^a-z0-9]+/g,"");
+  const financialForProject=(p,eventDate)=>{
+    const projectKey=financialKey(p.chatbot), clientKey=financialKey(p.client);
+    let matches=COMMERCIALS.filter(c=>{
+      const chatbotKey=financialKey(c.chatbot);
+      return projectKey&&chatbotKey&&(chatbotKey===projectKey||chatbotKey.includes(projectKey)||projectKey.includes(chatbotKey));
+    });
+    if(!matches.length){
+      const clientMatches=COMMERCIALS.filter(c=>clientKey&&financialKey(c.client)===clientKey);
+      if(new Set(clientMatches.map(c=>financialKey(c.chatbot))).size===1) matches=clientMatches;
+    }
+    matches.sort((a,b)=>(b.dateOfLive||0)-(a.dateOfLive||0));
+    const event=eventDate?dateOnly(eventDate):null;
+    const sameMonth=event&&matches.find(c=>c.dateOfLive&&c.dateOfLive.getFullYear()===event.getFullYear()&&c.dateOfLive.getMonth()===event.getMonth());
+    const before=event&&matches.find(c=>c.dateOfLive&&c.dateOfLive<=event);
+    return sameMonth||before||matches[0]||{revenue:0,cost:0,margin:0};
+  };
+
   // Daily/weekly management summary: list every change, delay and action for the period.
   const weeklySummary=document.getElementById("weeklyChangeSummary");
   if(timeChat.view==="Weekly" || timeChat.view==="Daily"){
@@ -1454,7 +1502,12 @@ function renderChatbots(){
       else if(inPeriod(p.dates.dev)) highlights.push(`${p.chatbot} started development`);
       else if(inPeriod(p.dates.comm)) highlights.push(`${p.chatbot} — commercials shared`);
     });
-    const lowlights=PROJECTS.filter(p=>isDelayedProject(p)&&p.stage!=="Live").sort((a,b)=>(delayDays(b)||0)-(delayDays(a)||0));
+    const lowlights=PROJECTS.filter(p=>delayedAsOf(p,end)).sort((a,b)=>delayDaysAsOf(b,end)-delayDaysAsOf(a,end));
+    const developmentProjects=PROJECTS.filter(p=>inPeriod(p.dates.dev));
+    const liveProjects=PROJECTS.filter(p=>inPeriod(p.dates.liveDate));
+    const expectedRevenue=developmentProjects.reduce((sum,p)=>sum+financialForProject(p,p.dates.dev).revenue,0);
+    const confirmedRevenue=liveProjects.reduce((sum,p)=>sum+financialForProject(p,p.dates.liveDate).revenue,0);
+    const confirmedMargin=liveProjects.reduce((sum,p)=>sum+financialForProject(p,p.dates.liveDate).margin,0);
     const nextAction=p=>{
       if(p.stage==="Quotes Given"||/commercial/i.test(p.stage)) return `${p.chatbot} — follow up for commercial confirmation`;
       if(p.stage==="Development") return `${p.chatbot} — obtain a revised delivery plan from ${p.vendor||"the vendor"}`;
@@ -1467,10 +1520,15 @@ function renderChatbots(){
       : `<div class="none">${empty}</div>`;
     const periodName=timeChat.view==="Daily"?"today":"this week";
     weeklySummary.innerHTML=`<h2>What changed ${periodName}</h2><div class="wk-range">${fmtD(start)}${timeChat.view==="Daily"?"":" – "+fmtD(end)}</div>
+      <div class="period-finance-grid">
+        <div class="period-finance-card expected"><div class="label">Expected revenue entering development</div><div class="value">${fmtCompact(expectedRevenue)}</div><div class="hint">${developmentProjects.length} bot${developmentProjects.length===1?"":"s"} started development</div></div>
+        <div class="period-finance-card confirmed"><div class="label">Confirmed revenue from go-lives</div><div class="value">${fmtCompact(confirmedRevenue)}</div><div class="hint">${liveProjects.length} bot${liveProjects.length===1?"":"s"} went live</div></div>
+        <div class="period-finance-card margin"><div class="label">Confirmed margin from go-lives</div><div class="value">${fmtCompact(confirmedMargin)}</div><div class="hint">Matched to the project financial record</div></div>
+      </div>
       <div class="weekly-change-grid">
         <div class="weekly-change-block new"><h3>New requirements · ${newRequirements.length}</h3>${list(newRequirements,"No new requirements recorded.",p=>`${p.chatbot} — ${p.stage}`)}</div>
         <div class="weekly-change-block high"><h3>Highlights · ${highlights.length}</h3>${list(highlights,"No positive milestone changes recorded.")}</div>
-        <div class="weekly-change-block low"><h3>Lowlights / delays · ${lowlights.length}</h3>${list(lowlights,"No delayed or blocked projects.",p=>`${p.chatbot}${delayDays(p)!==null?` — ${delayDays(p)} days delayed`:""}${p.delayComment?`: ${p.delayComment}`:""}`)}</div>
+        <div class="weekly-change-block low"><h3>Lowlights / delays · ${lowlights.length}</h3>${list(lowlights,"No delayed or blocked projects for this period.",p=>`${p.chatbot} — ${delayDaysAsOf(p,end)} days delayed${p.delayComment?`: ${p.delayComment}`:""}`)}</div>
         <div class="weekly-change-block action"><h3>Actions to be taken · ${lowlights.length}</h3>${list(lowlights,"No recovery actions required.",nextAction)}</div>
       </div>`;
     weeklySummary.style.display="block";

@@ -94,6 +94,15 @@
   .pstat{background:var(--surface-alt); border-radius:10px; padding:10px 12px;}
   .pstat .pn{font-family:'Lexend', sans-serif; font-size:20px; font-weight:700;}
   .pstat .pl{font-size:10.5px; color:var(--text-faint); text-transform:uppercase; letter-spacing:.04em; margin-top:2px;}
+  .weekly-change-summary{margin:14px 0 0 auto; width:min(100%,430px); background:linear-gradient(145deg,#fff,#F7F8FF); border:1px solid var(--border); border-left:4px solid var(--accent); border-radius:14px; padding:14px 16px; box-shadow:0 8px 24px rgba(45,42,110,.08);}
+  .weekly-change-summary h2{font-size:15px; margin:0 0 4px;}
+  .weekly-change-summary .wk-range{font-size:10.5px; color:var(--text-faint); margin-bottom:10px;}
+  .weekly-change-grid{display:grid; gap:9px;}
+  .weekly-change-block{background:#fff; border:1px solid var(--border); border-radius:10px; padding:9px 10px;}
+  .weekly-change-block h3{font-size:11px; margin:0 0 5px; text-transform:uppercase; letter-spacing:.04em;}
+  .weekly-change-block ul{margin:0; padding-left:17px; font-size:11.5px; line-height:1.45; color:var(--text-dim);}
+  .weekly-change-block .none{font-size:11px; color:var(--text-faint);}
+  .weekly-change-block.high h3{color:var(--live);}.weekly-change-block.low h3{color:var(--delay);}.weekly-change-block.new h3{color:var(--accent);}
 
   .overview{display:grid; grid-template-columns:300px 1fr; gap:20px; margin-top:16px;}
   .panel{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:24px; box-shadow:var(--shadow-sm);}
@@ -316,6 +325,8 @@
       <div class="period-stats" id="periodStats" style="grid-column:1/-1; width:100%;"></div>
     </div>
 
+    <aside id="weeklyChangeSummary" class="weekly-change-summary" style="display:none;" aria-live="polite"></aside>
+
     <div class="overview">
       <div class="panel">
         <h2>By Stage</h2>
@@ -441,7 +452,7 @@
       <div class="period-label" id="periodLabelCons"></div>
     </div>
 
-    <div class="rev-layout" style="grid-template-columns:1fr;">
+    <div class="rev-layout">
       <div class="rev-main">
         <section id="recordsCons">
           <div class="records-head">
@@ -453,6 +464,12 @@
           </div>
         </section>
       </div>
+      <aside class="rev-side">
+        <div class="panel">
+          <h2>Top 10 contributing clients <small>selected period</small></h2>
+          <div id="consTopClients"></div>
+        </div>
+      </aside>
     </div>
   </section>
 
@@ -467,7 +484,7 @@
       </div>
       <div class="tf-group" style="flex:1; min-width:280px; position:relative;">
         <label>Client</label>
-        <button type="button" id="csClientBtn" class="ms-btn" style="min-width:240px;">Select a client</button>
+        <button type="button" id="csClientBtn" class="ms-btn" style="min-width:240px;">All clients</button>
         <div id="csClientPanel" class="ms-panel" style="display:none; min-width:300px;">
           <input type="text" id="csClientSearch" placeholder="Search clients…" autocomplete="off"
             style="width:100%; margin-bottom:8px; padding:6px 8px; border:1px solid var(--border); border-radius:6px; font-family:'Lexend',sans-serif; font-size:12.5px; color:var(--text);">
@@ -483,7 +500,7 @@
       <button id="csClearBtn" style="border:1px solid var(--border); background:var(--surface); color:var(--text-dim); font-family:'Lexend',sans-serif; font-weight:600; font-size:12px; padding:8px 14px; border-radius:20px; cursor:pointer;">Clear</button>
     </div>
 
-    <div id="csEmpty" class="panel" style="margin-top:16px;"><div class="empty-state">Select a client above to view its month-wise summary.</div></div>
+    <div id="csEmpty" class="panel" style="margin-top:16px; display:none;"><div class="empty-state">No records match the selected filters.</div></div>
     <div id="csContent" style="margin-top:16px; display:none;">
       <div class="panel cs-card cs-card-total">
         <div class="cs-group-title">Total (Commercials + Consumable)</div>
@@ -1340,6 +1357,34 @@ function renderChatbots(){
   };
   const delayCell=p=>{const days=delayDays(p);return days===null?"—":`<b style="color:var(--delay)">-${days}</b>`;};
   const isDelayedProject=p=>/^delayed/i.test(String(p.delayFlag||""))||(!p.dates.liveDate&&developmentTiming(p).status==="Delayed");
+
+  // Weekly management summary: show the most important changes for the selected week in one
+  // compact panel, while the detailed milestone cards and records remain available below.
+  const weeklySummary=document.getElementById("weeklyChangeSummary");
+  if(timeChat.view==="Weekly"){
+    const newRequirements=PROJECTS.filter(p=>inPeriod(p.dates.brief));
+    const highlights=[];
+    PROJECTS.forEach(p=>{
+      if(inPeriod(p.dates.liveDate)) highlights.push(`${p.chatbot} went live`);
+      else if(milestoneMatchesProject(p,"test",start,end)) highlights.push(`${p.chatbot} entered UAT`);
+      else if(inPeriod(p.dates.dev)) highlights.push(`${p.chatbot} started development`);
+      else if(inPeriod(p.dates.comm)) highlights.push(`${p.chatbot} — commercials shared`);
+    });
+    const lowlights=PROJECTS.filter(isDelayedProject).sort((a,b)=>(delayDays(b)||0)-(delayDays(a)||0));
+    const list=(items,empty,formatter=x=>x)=>items.length
+      ? `<ul>${items.slice(0,4).map(x=>`<li>${formatter(x)}</li>`).join("")}${items.length>4?`<li>+${items.length-4} more</li>`:""}</ul>`
+      : `<div class="none">${empty}</div>`;
+    weeklySummary.innerHTML=`<h2>What changed this week</h2><div class="wk-range">${fmtD(start)} – ${fmtD(end)}</div>
+      <div class="weekly-change-grid">
+        <div class="weekly-change-block new"><h3>New requirements · ${newRequirements.length}</h3>${list(newRequirements,"No new requirements recorded.",p=>`${p.chatbot} — ${p.stage}`)}</div>
+        <div class="weekly-change-block high"><h3>Highlights · ${highlights.length}</h3>${list(highlights,"No positive milestone changes recorded.")}</div>
+        <div class="weekly-change-block low"><h3>Lowlights · ${lowlights.length}</h3>${list(lowlights,"No delayed or blocked projects.",p=>`${p.chatbot}${delayDays(p)!==null?` — ${delayDays(p)} days delayed`:""}${p.delayComment?`: ${p.delayComment}`:""}`)}</div>
+      </div>`;
+    weeklySummary.style.display="block";
+  }else{
+    weeklySummary.style.display="none";
+    weeklySummary.innerHTML="";
+  }
   const STAGE_EXTRA_COLS = {
     "Live": [{header:"Went Live On",cell:p=>p.dates.liveDate ? fmtD(p.dates.liveDate) : "—"}],
     "Development": [
@@ -1581,9 +1626,9 @@ function updateCsMonthBtn(){
 
 function updateCsClientBtn(){
   const btn = document.getElementById("csClientBtn");
-  if(csFilter.clients.size===0){ btn.textContent = "Select a client"; return; }
+  if(csFilter.clients.size===0){ btn.textContent = "All clients"; return; }
   const sel = [...csFilter.clients];
-  btn.textContent = sel[0];
+  btn.textContent = sel.length===1 ? sel[0] : `${sel.length} clients selected`;
 }
 
 function populateCsFilters(){
@@ -1635,9 +1680,8 @@ function populateCsFilters(){
     listEl.querySelectorAll(".cs-client-cb").forEach(cb=>{
       cb.checked = csFilter.clients.has(cb.value);
       cb.addEventListener("change", ()=>{
-        csFilter.clients.clear();
-        listEl.querySelectorAll(".cs-client-cb").forEach(other=>{ if(other!==cb) other.checked=false; });
         if(cb.checked) csFilter.clients.add(cb.value);
+        else csFilter.clients.delete(cb.value);
         document.getElementById("csClientAll").checked = csFilter.clients.size===0;
         updateCsClientBtn();
         renderClientSummary();
@@ -1800,12 +1844,10 @@ function renderCsRecords(){
 
 function renderClientSummary(){
   populateCsFilters();
-  const hasClient=csFilter.clients.size===1;
-  document.getElementById("csEmpty").style.display=hasClient?"none":"block";
-  document.getElementById("csContent").style.display=hasClient?"block":"none";
-  if(!hasClient) return;
-
-  const rowsAll = buildClientMonthly(effectiveCsClients(), false);
+  document.getElementById("csEmpty").style.display="none";
+  document.getElementById("csContent").style.display="block";
+  const isUnfiltered = csFilter.clients.size===0 && csFilter.industries.size===0;
+  const rowsAll = buildClientMonthly(effectiveCsClients(), isUnfiltered);
   const yearRows = csFilter.year==="All" ? rowsAll : rowsAll.filter(r=>fiscalYear(r.date)===+csFilter.year);
   // KPI cards respect financial Year (Apr-Mar), selected Month(s) and Client; the monthly
   // table/trend below only respects Year (+ Client), so the growth-over-time picture stays
@@ -1915,6 +1957,22 @@ function renderConsumable(){
     el.innerHTML=`<div class="label">${k.label}</div><div class="value">${k.value}</div><div class="hint">${k.hint}</div>`;
     kRow.appendChild(el);
   });
+
+  // Top contributors always use the selected period and Industry filter, before the optional
+  // single-client drill-down, so the right-side ranking remains a useful comparison view.
+  const topMap={};
+  industryScoped.forEach(row=>{
+    if(!topMap[row.client]) topMap[row.client]={client:row.client,revenue:0,cost:0,margin:0,records:0};
+    const d=topMap[row.client]; d.revenue+=row.revenue; d.cost+=row.cost; d.margin+=row.margin; d.records++;
+  });
+  const topClients=Object.values(topMap).sort((a,b)=>b.revenue-a.revenue).slice(0,10);
+  const topEl=document.getElementById("consTopClients");
+  if(topClients.length===0){
+    topEl.innerHTML=`<div class="empty-state">No contributing clients in this period.</div>`;
+  }else{
+    topEl.innerHTML=`<table class="rev"><thead><tr><th>#</th><th>Client</th><th style="text-align:right">Revenue</th><th style="text-align:right">Records</th></tr></thead><tbody>${topClients.map((r,i)=>`<tr data-client="${r.client.replace(/"/g,"&quot;")}" title="Cost ${fmtINR(r.cost)} · Margin ${fmtINR(r.margin)}"><td>${i+1}</td><td><b>${r.client}</b><div style="font-size:10px;color:var(--text-faint);margin-top:3px;">Cost ${fmtCompact(r.cost)} · Margin ${fmtCompact(r.margin)}</div></td><td class="num">${fmtCompact(r.revenue)}</td><td class="num">${r.records}</td></tr>`).join("")}</tbody></table>`;
+    topEl.querySelectorAll("tr[data-client]").forEach(tr=>tr.addEventListener("click",()=>setConsClient(tr.dataset.client)));
+  }
 
   const crumbsCons=document.getElementById("breadcrumbsCons"); crumbsCons.innerHTML="";
   if(consFilter.client) crumbsCons.appendChild(makeCrumb("Client: "+consFilter.client, ()=>setConsClient(consFilter.client)));

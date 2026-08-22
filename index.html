@@ -283,7 +283,9 @@
   .cs-groups{display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-top:16px;}
   .cs-empty{padding:70px 20px; text-align:center; color:var(--text-faint); font-family:'Lexend', sans-serif; font-size:13.5px;}
   .cs-groups-pair{display:grid; grid-template-columns:repeat(2,1fr); gap:16px; margin-top:16px;}
+  .cs-groups-pair.cs-groups-three{grid-template-columns:repeat(3,minmax(0,1fr));}
   @media(max-width:960px){ .cs-groups-pair{grid-template-columns:1fr;} }
+  @media(max-width:1180px){ .cs-groups-pair.cs-groups-three{grid-template-columns:1fr;} }
   .cs-card{border:1.5px solid transparent; border-left-width:5px;}
   .cs-card-total{background:var(--cs-teal-soft); border-color:var(--cs-teal-border); border-left-color:var(--cs-teal);}
   .cs-card-total .cs-stat{background:rgba(255,255,255,.7);}
@@ -298,7 +300,8 @@
   /* Soft pastel active state for the Monthly Breakdown tabs — no solid saturated fill. */
   #csBreakdownTabs .tab[data-view="total"].active{background:var(--cs-teal-soft); color:var(--cs-teal); box-shadow:none;}
   #csBreakdownTabs .tab[data-view="comm"].active{background:#EFF6FF; color:#2563EB; box-shadow:none;}
-  #csBreakdownTabs .tab[data-view="cons"].active{background:#FFF7ED; color:#B45309; box-shadow:none;}
+  #csBreakdownTabs .tab[data-view="wa"].active{background:#FFF7ED; color:#B45309; box-shadow:none;}
+  #csBreakdownTabs .tab[data-view="rcs"].active{background:#F0FDF4; color:#047857; box-shadow:none;}
   .cs-trend-row{display:flex; gap:20px; align-items:flex-start;}
   .cs-trend-chart{flex:1; min-width:0;}
   @media(max-width:900px){ .cs-trend-row{flex-direction:column;} }
@@ -565,7 +568,7 @@
     <div id="csEmpty" class="panel" style="margin-top:16px; display:none;"><div class="empty-state">No records match the selected filters.</div></div>
     <div id="csContent" style="margin-top:16px; display:none;">
       <div class="panel cs-card cs-card-total">
-        <div class="cs-group-title">Total (Commercials + Consumable)</div>
+        <div class="cs-group-title">Total (Commercials + WA Consumables + RCS Consumables)</div>
         <div class="cs-stat-grid cs-stat-grid-4">
           <div class="cs-stat m-rev"><div class="l">Revenue</div><div class="v" id="csTotRev">—</div></div>
           <div class="cs-stat m-cost"><div class="l">Cost</div><div class="v" id="csTotCost">—</div></div>
@@ -574,7 +577,7 @@
         </div>
       </div>
 
-      <div class="cs-groups-pair">
+      <div class="cs-groups-pair cs-groups-three">
         <div class="panel cs-card cs-card-comm">
           <div class="cs-group-title">Commercials</div>
           <div class="cs-stat-grid cs-stat-grid-4">
@@ -585,12 +588,21 @@
           </div>
         </div>
         <div class="panel cs-card cs-card-cons">
-          <div class="cs-group-title">Consumable</div>
+          <div class="cs-group-title">WA Consumables</div>
           <div class="cs-stat-grid cs-stat-grid-4">
-            <div class="cs-stat m-rev"><div class="l">Revenue</div><div class="v" id="csConsRev">—</div></div>
-            <div class="cs-stat m-cost"><div class="l">Cost</div><div class="v" id="csConsCost">—</div></div>
-            <div class="cs-stat m-margin"><div class="l">Margin</div><div class="v" id="csConsMargin">—</div></div>
-            <div class="cs-stat m-marginpct"><div class="l">Margin %</div><div class="v" id="csConsMarginPct">—</div></div>
+            <div class="cs-stat m-rev"><div class="l">Revenue</div><div class="v" id="csWaRev">—</div></div>
+            <div class="cs-stat m-cost"><div class="l">Cost</div><div class="v" id="csWaCost">—</div></div>
+            <div class="cs-stat m-margin"><div class="l">Margin</div><div class="v" id="csWaMargin">—</div></div>
+            <div class="cs-stat m-marginpct"><div class="l">Margin %</div><div class="v" id="csWaMarginPct">—</div></div>
+          </div>
+        </div>
+        <div class="panel cs-card cs-card-cons">
+          <div class="cs-group-title">RCS Consumables</div>
+          <div class="cs-stat-grid cs-stat-grid-4">
+            <div class="cs-stat m-rev"><div class="l">Revenue</div><div class="v" id="csRcsRev">—</div></div>
+            <div class="cs-stat m-cost"><div class="l">Cost</div><div class="v" id="csRcsCost">—</div></div>
+            <div class="cs-stat m-margin"><div class="l">Margin</div><div class="v" id="csRcsMargin">—</div></div>
+            <div class="cs-stat m-marginpct"><div class="l">Margin %</div><div class="v" id="csRcsMarginPct">—</div></div>
           </div>
         </div>
       </div>
@@ -612,7 +624,8 @@
             <div class="tabbar" id="csBreakdownTabs">
               <div class="tab active" data-view="total">Total</div>
               <div class="tab" data-view="comm">Commercials</div>
-              <div class="tab" data-view="cons">Consumable</div>
+              <div class="tab" data-view="wa">WA</div>
+              <div class="tab" data-view="rcs">RCS</div>
             </div>
             <div style="overflow-x:auto;">
               <table class="rev" id="csMonthlyTable">
@@ -1649,7 +1662,8 @@ function renderMonthlyTrend(periodRows){
 }
 
 /* ---------------- Render: Client Summary page ---------------- */
-const csFilter = { year:"All", months:new Set(), clients:new Set(), industries: new Set() };
+const csToday = new Date();
+const csFilter = { year:String(fiscalYear(csToday)), months:new Set([csToday.getMonth()+1]), clients:new Set(), industries: new Set() };
 let csBreakdownView = "total";
 // Set when a row in the Monthly Breakdown table is clicked, to drill the new client-level
 // Records list (below) down into just that one month. Cleared via the ✕ on its breadcrumb or
@@ -1683,20 +1697,28 @@ function buildClientMonthly(selectedClients, isUnfiltered){
   COMMERCIALS.forEach(c=>{
     if((!useAll && !selectedClients.has(c.client)) || !c.dateOfLive) return;
     const k=monthKey(c.dateOfLive);
-    if(!map[k]) map[k]={key:k, date:new Date(c.dateOfLive.getFullYear(),c.dateOfLive.getMonth(),1), commRev:0,commCost:0,consRev:0,consCost:0};
+    if(!map[k]) map[k]={key:k, date:new Date(c.dateOfLive.getFullYear(),c.dateOfLive.getMonth(),1), commRev:0,commCost:0,waRev:0,waCost:0,rcsRev:0,rcsCost:0};
     map[k].commRev+=c.revenue; map[k].commCost+=c.cost;
   });
   CONSUMABLE.forEach(c=>{
     if((!useAll && !selectedClients.has(c.client)) || !c.month) return;
     const k=monthKey(c.month);
-    if(!map[k]) map[k]={key:k, date:new Date(c.month.getFullYear(),c.month.getMonth(),1), commRev:0,commCost:0,consRev:0,consCost:0};
-    map[k].consRev+=c.revenue; map[k].consCost+=c.cost;
+    if(!map[k]) map[k]={key:k, date:new Date(c.month.getFullYear(),c.month.getMonth(),1), commRev:0,commCost:0,waRev:0,waCost:0,rcsRev:0,rcsCost:0};
+    map[k].waRev+=c.revenue; map[k].waCost+=c.cost;
+  });
+  RCS_CONSUMABLE.forEach(c=>{
+    if((!useAll && !selectedClients.has(c.client)) || !c.month) return;
+    const k=monthKey(c.month);
+    if(!map[k]) map[k]={key:k, date:new Date(c.month.getFullYear(),c.month.getMonth(),1), commRev:0,commCost:0,waRev:0,waCost:0,rcsRev:0,rcsCost:0};
+    map[k].rcsRev+=c.revenue; map[k].rcsCost+=c.cost;
   });
   return Object.values(map).sort((a,b)=>a.date-b.date).map(m=>({
     key:m.key, date:m.date, label:monthLabel(m.date),
     commRev:m.commRev, commCost:m.commCost, commMargin:m.commRev-m.commCost,
-    consRev:m.consRev, consCost:m.consCost, consMargin:m.consRev-m.consCost,
-    totRev:m.commRev+m.consRev, totCost:m.commCost+m.consCost, totMargin:(m.commRev+m.consRev)-(m.commCost+m.consCost)
+    waRev:m.waRev, waCost:m.waCost, waMargin:m.waRev-m.waCost,
+    rcsRev:m.rcsRev, rcsCost:m.rcsCost, rcsMargin:m.rcsRev-m.rcsCost,
+    totRev:m.commRev+m.waRev+m.rcsRev, totCost:m.commCost+m.waCost+m.rcsCost,
+    totMargin:(m.commRev+m.waRev+m.rcsRev)-(m.commCost+m.waCost+m.rcsCost)
   }));
 }
 
@@ -1721,6 +1743,7 @@ function populateCsFilters(){
   const years = new Set();
   COMMERCIALS.forEach(c=>{ if(c.dateOfLive) years.add(fiscalYear(c.dateOfLive)); });
   CONSUMABLE.forEach(c=>{ if(c.month) years.add(fiscalYear(c.month)); });
+  RCS_CONSUMABLE.forEach(c=>{ if(c.month) years.add(fiscalYear(c.month)); });
   const sortedYears = [...years].sort((a,b)=>b-a);
   const prevYear = yearSel.value || csFilter.year;
   yearSel.innerHTML = `<option value="All">All years</option>` + sortedYears.map(y=>`<option value="${y}">FY ${y}-${String(y+1).slice(-2)}</option>`).join("");
@@ -1744,6 +1767,7 @@ function populateCsFilters(){
       }
     });
     panel.querySelectorAll(".cs-month-cb").forEach(cb=>{
+      cb.checked = csFilter.months.has(+cb.value);
       cb.addEventListener("change", ()=>{
         if(cb.checked) csFilter.months.add(+cb.value); else csFilter.months.delete(+cb.value);
         panel.querySelector("#csMonthAll").checked = csFilter.months.size===0;
@@ -1751,6 +1775,7 @@ function populateCsFilters(){
         renderClientSummary();
       });
     });
+    panel.querySelector("#csMonthAll").checked = csFilter.months.size===0;
   }
 
   // Client checkbox list — rebuilt whenever the number of known clients changes (e.g. after the
@@ -1813,21 +1838,22 @@ document.getElementById("csClientSearch").addEventListener("input", e=>{
 });
 
 document.getElementById("csClearBtn").addEventListener("click", ()=>{
-  csFilter.clients.clear(); csFilter.year="All"; csFilter.months.clear(); csFilter.industries.clear(); csSelectedMonthKey=null;
+  const now=new Date();
+  csFilter.clients.clear(); csFilter.year=String(fiscalYear(now)); csFilter.months=new Set([now.getMonth()+1]); csFilter.industries.clear(); csSelectedMonthKey=null;
   document.querySelectorAll(".cs-client-cb").forEach(cb=>cb.checked=false);
   const clientAll = document.getElementById("csClientAll"); if(clientAll) clientAll.checked=true;
   updateCsClientBtn();
   const panel = document.getElementById("csMonthPanel");
   if(panel){
-    panel.querySelectorAll(".cs-month-cb").forEach(cb=>cb.checked=false);
-    const all = panel.querySelector("#csMonthAll"); if(all) all.checked=true;
+    panel.querySelectorAll(".cs-month-cb").forEach(cb=>cb.checked=(+cb.value===now.getMonth()+1));
+    const all = panel.querySelector("#csMonthAll"); if(all) all.checked=false;
   }
   updateCsMonthBtn();
   const indPanel = document.getElementById("industryPanelCs");
   if(indPanel){ indPanel.querySelectorAll(".ind-cb").forEach(cb=>cb.checked=false); const all=indPanel.querySelector(".ind-all-cb"); if(all) all.checked=true; }
   updateIndustryBtn("Cs", csFilter);
   renderClientSummary();
-  document.getElementById("csYear").value="All";
+  document.getElementById("csYear").value=csFilter.year;
 });
 
 document.getElementById("csBreakdownTabs").addEventListener("click", e=>{
@@ -1841,7 +1867,7 @@ document.getElementById("csBreakdownTabs").addEventListener("click", e=>{
 function renderCsBreakdownTable(yearRows){
   const tbody = document.getElementById("csMonthlyBody"); tbody.innerHTML="";
   const totalRow = document.getElementById("csMonthlyTotal"); totalRow.innerHTML="";
-  const keyMap = { total:["totRev","totCost","totMargin"], comm:["commRev","commCost","commMargin"], cons:["consRev","consCost","consMargin"] };
+  const keyMap = { total:["totRev","totCost","totMargin"], comm:["commRev","commCost","commMargin"], wa:["waRev","waCost","waMargin"], rcs:["rcsRev","rcsCost","rcsMargin"] };
   const [revKey,costKey,marginKey] = keyMap[csBreakdownView];
   if(yearRows.length===0){
     tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">No records found for the selected filters.</div></td></tr>`;
@@ -1894,6 +1920,10 @@ function buildCsClientRecords(){
     if((!isUnfiltered && !selectedClients.has(c.client)) || !csDateInScope(c.month)) return;
     add(c.client, c.revenue, c.cost);
   });
+  RCS_CONSUMABLE.forEach(c=>{
+    if((!isUnfiltered && !selectedClients.has(c.client)) || !csDateInScope(c.month)) return;
+    add(c.client, c.revenue, c.cost);
+  });
   return Object.keys(map).map(cl=>{
     const d=map[cl]; const ci=CLIENT_INDUSTRY[cl]||{};
     return { client:cl, revenue:d.revenue, cost:d.cost, margin:d.revenue-d.cost, industry: ci.industry || "Other" };
@@ -1941,18 +1971,23 @@ function renderClientSummary(){
 
   const sum = (arr,key) => arr.reduce((a,r)=>a+r[key],0);
   const commRev=sum(scoped,"commRev"), commCost=sum(scoped,"commCost"), commMargin=commRev-commCost;
-  const consRev=sum(scoped,"consRev"), consCost=sum(scoped,"consCost"), consMargin=consRev-consCost;
-  const totRev=commRev+consRev, totCost=commCost+consCost, totMargin=totRev-totCost;
+  const waRev=sum(scoped,"waRev"), waCost=sum(scoped,"waCost"), waMargin=waRev-waCost;
+  const rcsRev=sum(scoped,"rcsRev"), rcsCost=sum(scoped,"rcsCost"), rcsMargin=rcsRev-rcsCost;
+  const totRev=commRev+waRev+rcsRev, totCost=commCost+waCost+rcsCost, totMargin=totRev-totCost;
   const marginPct = (margin,rev) => rev ? (margin/rev*100).toFixed(1)+"%" : "—";
 
   document.getElementById("csCommRev").innerHTML = fmtCompact(commRev);
   document.getElementById("csCommCost").innerHTML = fmtCompact(commCost);
   document.getElementById("csCommMargin").innerHTML = fmtCompact(commMargin);
   document.getElementById("csCommMarginPct").textContent = marginPct(commMargin, commRev);
-  document.getElementById("csConsRev").innerHTML = fmtCompact(consRev);
-  document.getElementById("csConsCost").innerHTML = fmtCompact(consCost);
-  document.getElementById("csConsMargin").innerHTML = fmtCompact(consMargin);
-  document.getElementById("csConsMarginPct").textContent = marginPct(consMargin, consRev);
+  document.getElementById("csWaRev").innerHTML = fmtCompact(waRev);
+  document.getElementById("csWaCost").innerHTML = fmtCompact(waCost);
+  document.getElementById("csWaMargin").innerHTML = fmtCompact(waMargin);
+  document.getElementById("csWaMarginPct").textContent = marginPct(waMargin, waRev);
+  document.getElementById("csRcsRev").innerHTML = fmtCompact(rcsRev);
+  document.getElementById("csRcsCost").innerHTML = fmtCompact(rcsCost);
+  document.getElementById("csRcsMargin").innerHTML = fmtCompact(rcsMargin);
+  document.getElementById("csRcsMarginPct").textContent = marginPct(rcsMargin, rcsRev);
   document.getElementById("csTotRev").innerHTML = fmtCompact(totRev);
   document.getElementById("csTotCost").innerHTML = fmtCompact(totCost);
   document.getElementById("csTotMargin").innerHTML = fmtCompact(totMargin);

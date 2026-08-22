@@ -1037,12 +1037,21 @@ setInterval(syncData, REFRESH_MS);
 /* ---------------- Page nav ---------------- */
 const PAGES = [{id:"chatbots",label:"Projects"},{id:"revenue",label:"Chatbots R&M"},{id:"consumable",label:"WA_Consumables"},{id:"rcsconsumable",label:"RCS_Consumables"},{id:"clientsummary",label:"Client Summary"}];
 let activePage = "chatbots";
+let clientSummaryOpened = false;
 const pagenav = document.getElementById("pagenav");
 PAGES.forEach(p=>{
   const el=document.createElement("div");
   el.className="pagetab"+(p.id===activePage?" active":"");
   el.textContent=p.label; el.dataset.page=p.id;
   el.addEventListener("click", ()=>{ activePage=p.id;
+    if(p.id==="clientsummary" && !clientSummaryOpened){
+      const now=new Date();
+      csFilter.year=String(fiscalYear(now));
+      csFilter.months=new Set([now.getMonth()+1]);
+      csSelectedMonthKey=null;
+      csInitialPeriodApplied=true;
+      clientSummaryOpened=true;
+    }
     document.querySelectorAll(".pagetab").forEach(t=>t.classList.toggle("active", t.dataset.page===p.id));
     const pageId=p.id==="rcsconsumable"?"page-consumable":"page-"+p.id;
     document.querySelectorAll(".page").forEach(pg=>pg.classList.toggle("active", pg.id===pageId));
@@ -1077,9 +1086,9 @@ function inMonthSet(ts, d){ return !ts.months || ts.months.size===0 || ts.months
 const FY_MONTHS_ORDER = [["April",4],["May",5],["June",6],["July",7],["August",8],["September",9],["October",10],["November",11],["December",12],["January",1],["February",2],["March",3]];
 function fiscalYearsAvailable(){
   const years = new Set();
-  COMMERCIALS.forEach(c=>{ if(c.dateOfLive) years.add(fiscalYear(c.dateOfLive)); });
-  CONSUMABLE.forEach(c=>{ if(c.month) years.add(fiscalYear(c.month)); });
-  RCS_CONSUMABLE.forEach(c=>{ if(c.month) years.add(fiscalYear(c.month)); });
+  COMMERCIALS.forEach(c=>{ if(c.dateOfLive && c.dateOfLive>=CLIENT_SUMMARY_START) years.add(fiscalYear(c.dateOfLive)); });
+  CONSUMABLE.forEach(c=>{ if(c.month && c.month>=CLIENT_SUMMARY_START) years.add(fiscalYear(c.month)); });
+  RCS_CONSUMABLE.forEach(c=>{ if(c.month && c.month>=CLIENT_SUMMARY_START) years.add(fiscalYear(c.month)); });
   return [...years].filter(y=>y>=2026).sort((a,b)=>b-a);
 }
 function monthBtnLabel(state){

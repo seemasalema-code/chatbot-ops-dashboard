@@ -1,12 +1,16 @@
-# Controlled Gmail → Sheet sync
+# Client classification refresh
 
-The dashboard remains a read-only consumer of the Google Sheet. A sheet-bound Apps Script is the sole Gmail writer.
+The workbook automation no longer reads Gmail and never creates project rows.
 
 1. Open the workbook and choose **Extensions → Apps Script**.
 2. Replace `Code.gs` with this repository's `Code.gs`; set the manifest to `appsscript.json`.
-3. Run `installAutomation()` once and authorize Gmail + Sheets access.
-4. Confirm the workbook timezone is **Asia/Kolkata**.
+3. Run `removeLegacyGmailAutomation()` once to remove the retired Gmail triggers.
+4. Reload the workbook. Use **Client Data Refresh → Refresh legal name & industry** when required.
 
-The installer creates `Automation Config`, `Review Queue`, and `Sync Audit`, then scans Gmail every 15 minutes. Direct user edits in `Chatbot Projects` or `Commercials` become field-level overrides. A differing Gmail proposal is written to `Review Queue`; choose `Apply` or `Keep`. Nothing overridden is silently replaced.
+The refresh only updates these fields on existing `Chatbot Projects` rows:
 
-Commercial calculations remain formulas in the Sheet. The public dashboard only reads rendered values and therefore reflects accepted edits on its next 60-second refresh.
+- Client (legal client name)
+- Industry
+- Sub Industry
+
+The match must be unique in `Client List`. Unmatched or ambiguous names are left unchanged. No other project data is modified.

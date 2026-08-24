@@ -1018,6 +1018,7 @@ async function syncData(){
     const cDelayFound=findProjectCol(["Delay Flag"]), cDelay=cDelayFound>-1?cDelayFound:20;
     const cDelayCommentFound=findProjectCol(["Delay Comments","Delay Comment","Reason for Delay","Delay Reason","Notes","Remarks"]), cDelayComment=cDelayCommentFound>-1?cDelayCommentFound:21;
     const cPausedFound=findProjectCol(["Date Paused","Paused Date"]), cPaused=cPausedFound>-1?cPausedFound:23;
+    const cExclude=findProjectCol(["Exclude from Operations","Exclude Operations"]);
     const newProjects = []; let delayed = 0;
     for(let i=pHeaderIdx+1;i<projRows.length;i++){
       const r = projRows[i]; const chatbot = (r[cChatbot]||"").trim();
@@ -1033,7 +1034,8 @@ async function syncData(){
         delayFlag: cDelay>-1 ? (r[cDelay]||"").toString().trim() : "",
         delayComment: cDelayComment>-1 ? (r[cDelayComment]||"").toString().trim() : "",
         industry: cIndustry>-1 ? (r[cIndustry]||"").trim() : "",
-        subIndustry: cSubIndustry>-1 ? (r[cSubIndustry]||"").trim() : ""
+        subIndustry: cSubIndustry>-1 ? (r[cSubIndustry]||"").trim() : "",
+        excludeOperations: cExclude>-1 && /^(true|yes|1)$/i.test(String(r[cExclude]||"").trim())
       });
       if(cDelay>-1 && (r[cDelay]||"").trim().toLowerCase().startsWith("delayed")) delayed++;
     }
@@ -1485,13 +1487,15 @@ function renderProjectInsights(inPeriod){
     return d.brief||d.comm||d.dev||d.test||d.liveDate||null;
   };
   const daysInStage=p=>{const d=stageStart(p);return d?Math.max(0,Math.floor((now-d)/dayMs)):0};
-  const terminal=new Set(["Live","Lost","Paused"]);
-  const active=PROJECTS.filter(p=>!terminal.has(p.stage));
+  const inactiveStatuses=new Set(["on hold","paused","lost"]);
+  const normalizedStatus=p=>String(p.stage||p.status||"").trim().toLowerCase();
+  const isOperational=p=>!inactiveStatuses.has(normalizedStatus(p))&&!p.excludeOperations;
+  const active=PROJECTS.filter(p=>normalizedStatus(p)!=="live"&&isOperational(p));
   const delayed=active.filter(p=>(p.delayFlag||"").toLowerCase().startsWith("delayed"));
   const stuck=active.filter(p=>daysInStage(p)>=14&&!delayed.includes(p));
   const attention=[...delayed,...stuck].sort((a,b)=>daysInStage(b)-daysInStage(a));
   const next30=new Date(now); next30.setDate(next30.getDate()+30);
-  const upcoming=PROJECTS.filter(p=>p.dates&&p.dates.targetLive&&p.dates.targetLive>=now&&p.dates.targetLive<=next30).sort((a,b)=>a.dates.targetLive-b.dates.targetLive);
+  const upcoming=PROJECTS.filter(p=>isOperational(p)&&normalizedStatus(p)!=="live"&&p.dates&&p.dates.targetLive&&p.dates.targetLive>=now&&p.dates.targetLive<=next30).sort((a,b)=>a.dates.targetLive-b.dates.targetLive);
   const wentLive=PROJECTS.filter(p=>inPeriod(p.dates&&p.dates.liveDate)).length;
   const stats=[
     ["Active Projects",active.length,"excluding live, lost and paused"],

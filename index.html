@@ -406,6 +406,53 @@
     table.data thead th, table.data tbody td{padding:10px 14px;}
   }
   @media (prefers-reduced-motion: reduce){ *{animation:none !important; transition:none !important;} }
+
+  /* Projects operational insights */
+  .project-insights{display:grid;gap:22px;margin:22px 0 24px}
+  .insight-heading{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .insight-heading h2{font-size:20px}
+  .insight-heading p{font-size:12px;color:var(--text-faint)}
+  .insight-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
+  .insight-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-sm);min-height:112px}
+  .insight-stat:nth-child(1){background:#F3F0FF;border-color:#DED7FF}
+  .insight-stat:nth-child(2){background:#FFF4F1;border-color:#F7D9D2}
+  .insight-stat:nth-child(3){background:#EEF9F4;border-color:#CEECDE}
+  .insight-stat:nth-child(4){background:#EEF8FB;border-color:#D1EAF0}
+  .insight-stat .is-label{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-dim);font-weight:600}
+  .insight-stat .is-value{font-size:28px;font-weight:700;margin:8px 0 4px}
+  .insight-stat .is-hint{font-size:11px;color:var(--text-faint)}
+  .insight-grid{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:22px}
+  .insight-panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:24px;box-shadow:var(--shadow-sm)}
+  .insight-panel h3{font-size:16px;margin-bottom:16px}
+  .attention-list,.milestone-list{display:grid;gap:4px}
+  .attention-row{display:grid;grid-template-columns:10px minmax(0,1fr) auto;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--border)}
+  .attention-row:last-child,.milestone-row:last-child{border-bottom:0}
+  .attention-dot{width:9px;height:9px;border-radius:50%;background:var(--delay)}
+  .attention-dot.stuck{background:var(--hold)}
+  .attention-name,.milestone-name{font-size:13px;font-weight:600}
+  .attention-meta,.milestone-meta{font-size:11px;color:var(--text-faint);margin-top:4px}
+  .attention-age{font-size:11px;color:var(--delay);white-space:nowrap}
+  .milestone-row{display:grid;grid-template-columns:58px minmax(0,1fr);gap:13px;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
+  .milestone-date{background:#F1EDFF;color:var(--accent-dark);border-radius:10px;padding:8px 5px;text-align:center;font-size:11px;font-weight:600}
+  .pipeline-track{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:end;margin-top:8px}
+  .pipeline-step{text-align:center}
+  .pipeline-bar{display:flex;align-items:flex-end;justify-content:center;min-height:58px;padding:14px 8px;border-radius:10px 10px 5px 5px;background:#EEEAFE;color:var(--accent-dark);font-size:18px;font-weight:700}
+  .pipeline-step:nth-child(2) .pipeline-bar{min-height:72px;background:#F1EDFF}
+  .pipeline-step:nth-child(3) .pipeline-bar{min-height:88px;background:#EAF1FE;color:#2563EB}
+  .pipeline-step:nth-child(4) .pipeline-bar{min-height:68px;background:#E7F7F5;color:#0F9488}
+  .pipeline-step:nth-child(5) .pipeline-bar{min-height:78px;background:#E7F7ED;color:#16823E}
+  .pipeline-label{font-size:10px;color:var(--text-faint);margin-top:8px}
+  .aging-wrap{overflow:auto}
+  .aging-table{width:100%;border-collapse:collapse}
+  .aging-table th,.aging-table td{padding:12px 10px;text-align:left;border-bottom:1px solid var(--border);font-size:12px}
+  .aging-table th{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint)}
+  .health-pill{display:inline-flex;padding:5px 9px;border-radius:20px;font-size:10px;font-weight:600;background:#E7F7ED;color:#16823E}
+  .health-pill.attention{background:#FDF1E1;color:#A65C05}
+  .health-pill.delayed{background:#FDEAEA;color:#C92323}
+  .insight-empty{padding:18px 0;color:var(--text-faint);font-size:12px}
+  @media(max-width:900px){.insight-stats{grid-template-columns:repeat(2,1fr)}.insight-grid{grid-template-columns:1fr}}
+  @media(max-width:560px){.insight-stats{grid-template-columns:1fr}.pipeline-track{grid-template-columns:1fr}.pipeline-step{display:grid;grid-template-columns:1fr 1.6fr;align-items:center;text-align:left}.pipeline-bar{min-height:44px!important}.attention-row{grid-template-columns:10px 1fr}.attention-age{grid-column:2}}
+
 </style>
 </head>
 <body>
@@ -463,6 +510,20 @@
     </div>
 
     <aside id="weeklyChangeSummary" class="weekly-change-summary" style="display:none;" aria-live="polite"></aside>
+
+    <section id="projectInsights" class="project-insights" aria-live="polite">
+      <div class="insight-heading">
+        <div><h2>Project Operations</h2><p>Delivery health, upcoming milestones and stage movement</p></div>
+      </div>
+      <div class="insight-stats" id="insightStats"></div>
+      <div class="insight-grid">
+        <div class="insight-panel"><h3>Needs Attention</h3><div class="attention-list" id="attentionList"></div></div>
+        <div class="insight-panel"><h3>Upcoming Milestones</h3><div class="milestone-list" id="milestoneList"></div></div>
+      </div>
+      <div class="insight-panel"><h3>Pipeline Movement</h3><div class="pipeline-track" id="pipelineTrack"></div></div>
+      <div class="insight-panel"><h3>Project Aging</h3><div class="aging-wrap"><table class="aging-table"><thead><tr><th>Chatbot</th><th>Owner</th><th>Stage</th><th>Days in stage</th><th>Next milestone</th><th>Health</th></tr></thead><tbody id="agingBody"></tbody></table></div></div>
+    </section>
+
 
     <div class="overview">
       <div class="panel">
@@ -964,7 +1025,7 @@ async function syncData(){
       const client = (r[cClient]||"").trim() || chatbot;
       const status = (r[cStatus]||"").trim(), platform = (r[cPlatform]||"").trim();
       newProjects.push({
-        client, chatbot, platform, vendor:toVendor(r[cVendor]), status,
+        client, chatbot, salesConnect:(r[4]||"").trim(), platform, vendor:toVendor(r[cVendor]), status,
         aiEnabled: (r[cAIEnabled]||"").trim(),
         stage: toStage(status), type: toType(platform),
         dates:{ brief:parseDate(r[cBrief]), comm:parseDate(r[cComm]), dev:parseDate(r[cDev]), test:parseDate(r[cTest]), targetLive:parseDate(r[cUpdatedLive])||parseDate(r[cCommittedLive]), liveDate:parseDate(r[cActualLive]), paused: cPaused>-1?parseDate(r[cPaused]):null },
@@ -1332,7 +1393,7 @@ function initTimebar(segId, dateId, labelId, state, onChange, yearGroupId, month
   });
 }
 initTimebar("segView","asOfDate","periodLabel", timeChat, ()=>renderChatbots(), "yearGroupChat","monthGroupChat");
-initTimebar("segViewRev","asOfDateRev","periodLabelRev", timeRev, ()=>renderRevenue(), "yearGroupRev","monthGroupRev");
+initTimebar("segViewRev","asOfDateRev","periodLabelRev", timeRev, ()=>renderRevenue(), "yearGroupRev","monthGroupRev", ["Monthly","Year"]);
 initTimebar("segViewCons","asOfDateCons","periodLabelCons", timeCons, ()=>renderConsumable(), "yearGroupCons","monthGroupCons", ["Year","Monthly"]);
 setupYearMonthUI("Chat", timeChat, ()=>renderChatbots());
 setupYearMonthUI("Rev", timeRev, ()=>renderRevenue());
@@ -1408,6 +1469,61 @@ function clearFilters(){
 document.getElementById("clearFiltersBtn").addEventListener("click", clearFilters);
 
 /* ---------------- Render: Chatbots page ---------------- */
+
+function renderProjectInsights(inPeriod){
+  const root=document.getElementById("projectInsights");
+  if(!root) return;
+  const now=new Date(); now.setHours(0,0,0,0);
+  const dayMs=86400000;
+  const safe=v=>String(v==null?"":v).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));
+  const stageStart=p=>{
+    const s=(p.stage||"").toLowerCase(), d=p.dates||{};
+    if(s==="live") return d.liveDate||d.test||d.dev||d.comm||d.brief;
+    if(s==="uat") return d.test||d.dev||d.comm||d.brief;
+    if(s==="development") return d.dev||d.comm||d.brief;
+    if(s==="quotes given"||s==="commercials shared") return d.comm||d.brief;
+    return d.brief||d.comm||d.dev||d.test||d.liveDate||null;
+  };
+  const daysInStage=p=>{const d=stageStart(p);return d?Math.max(0,Math.floor((now-d)/dayMs)):0};
+  const terminal=new Set(["Live","Lost","Paused"]);
+  const active=PROJECTS.filter(p=>!terminal.has(p.stage));
+  const delayed=active.filter(p=>(p.delayFlag||"").toLowerCase().startsWith("delayed"));
+  const stuck=active.filter(p=>daysInStage(p)>=14&&!delayed.includes(p));
+  const attention=[...delayed,...stuck].sort((a,b)=>daysInStage(b)-daysInStage(a));
+  const next30=new Date(now); next30.setDate(next30.getDate()+30);
+  const upcoming=PROJECTS.filter(p=>p.dates&&p.dates.targetLive&&p.dates.targetLive>=now&&p.dates.targetLive<=next30).sort((a,b)=>a.dates.targetLive-b.dates.targetLive);
+  const wentLive=PROJECTS.filter(p=>inPeriod(p.dates&&p.dates.liveDate)).length;
+  const stats=[
+    ["Active Projects",active.length,"excluding live, lost and paused"],
+    ["Needs Attention",attention.length,"delayed or over 14 days in stage"],
+    ["Went Live",wentLive,"in the selected period"],
+    ["Next 30 Days",upcoming.length,"planned go-lives"]
+  ];
+  document.getElementById("insightStats").innerHTML=stats.map(s=>'<div class="insight-stat"><div class="is-label">'+s[0]+'</div><div class="is-value">'+s[1]+'</div><div class="is-hint">'+s[2]+'</div></div>').join("");
+  document.getElementById("attentionList").innerHTML=attention.length?attention.slice(0,6).map(p=>{
+    const isDelayed=delayed.includes(p), days=daysInStage(p);
+    return '<div class="attention-row"><span class="attention-dot '+(isDelayed?'':'stuck')+'"></span><div><div class="attention-name">'+safe(p.chatbot||p.client)+'</div><div class="attention-meta">'+safe(p.stage)+(p.delayComment?' · '+safe(p.delayComment):' · no stage movement recorded')+'</div></div><div class="attention-age">'+days+' days in stage</div></div>';
+  }).join(""):'<div class="insight-empty">No projects currently require attention.</div>';
+  document.getElementById("milestoneList").innerHTML=upcoming.length?upcoming.slice(0,6).map(p=>{
+    const d=p.dates.targetLive;
+    return '<div class="milestone-row"><div class="milestone-date">'+d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"})+'</div><div><div class="milestone-name">'+safe(p.chatbot||p.client)+'</div><div class="milestone-meta">Expected go-live · '+safe(p.stage)+'</div></div></div>';
+  }).join(""):'<div class="insight-empty">No planned go-lives in the next 30 days.</div>';
+  const pipeline=[
+    ["Brief Received",PROJECTS.filter(p=>p.stage==="Discovery"||p.stage==="Demo Bot").length],
+    ["Commercials",PROJECTS.filter(p=>p.stage==="Quotes Given").length],
+    ["Development",PROJECTS.filter(p=>p.stage==="Development").length],
+    ["UAT",PROJECTS.filter(p=>p.stage==="UAT").length],
+    ["Live",PROJECTS.filter(p=>p.stage==="Live").length]
+  ];
+  document.getElementById("pipelineTrack").innerHTML=pipeline.map(x=>'<div class="pipeline-step"><div class="pipeline-bar">'+x[1]+'</div><div class="pipeline-label">'+x[0]+'</div></div>').join("");
+  const aging=active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a)).slice(0,10);
+  document.getElementById("agingBody").innerHTML=aging.length?aging.map(p=>{
+    const days=daysInStage(p), isDelayed=delayed.includes(p), health=isDelayed?"Delayed":days>=14?"Attention":"On track";
+    const next=p.dates&&p.dates.targetLive?p.dates.targetLive.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"—";
+    return '<tr><td>'+safe(p.chatbot||p.client)+'</td><td>'+safe(p.salesConnect||"—")+'</td><td>'+safe(p.stage)+'</td><td>'+days+'</td><td>'+next+'</td><td><span class="health-pill '+(isDelayed?'delayed':days>=14?'attention':'')+'">'+health+'</span></td></tr>';
+  }).join(""):'<tr><td colspan="6" class="insight-empty">No active projects in this view.</td></tr>';
+}
+
 function renderChatbots(){
   const total = PROJECTS.length;
   const liveCount = PROJECTS.filter(p=>p.stage==="Live").length;
@@ -1444,6 +1560,8 @@ function renderChatbots(){
   ];
   const psEl = document.getElementById("periodStats"); psEl.innerHTML="";
   pstats.forEach(s=>{ const d=document.createElement("div"); d.className="pstat"+(filters.milestone===s.key?" active":""); d.title="Show related projects"; d.innerHTML=`<div class="pn">${s.n}</div><div class="pl">${s.l}</div>`; d.addEventListener("click",()=>{filters.milestone=filters.milestone===s.key?null:s.key; filters.delayedOnly=false; filters.stage="All"; filters.type="All"; filters.vendor=null; filters.aiEnabled="All"; renderChatbots(); setTimeout(focusRecords,0);}); psEl.appendChild(d); });
+
+  renderProjectInsights(inPeriod);
 
   // Stage/Type tab order: the fixed taxonomy above, plus any status/bot-type text found in the
   // sheet that isn't already listed — so nothing the sheet contains ever goes unrepresented.

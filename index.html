@@ -959,25 +959,19 @@ async function syncData(){
     // calculation/operational sheet but must not independently create console revenue.
     const useRmAsFinancialSource = true;
     if(useRmAsFinancialSource && rmHeaderIdx !== -1){
-      // "Chatbot R&M" sheet layout (fixed by the sheet-build Apps Script — 28 cols, A-AB):
-      // A Client, B Chatbot, C Vendor, D Month, E Financial Year, F-H AI/Agent/Conversation Qty,
-      // I-Q Vendor-side cost breakdown (Q = Total Cost Vendor), R-Z Netcore-side revenue
-      // breakdown (Z = Total Revenue Netcore), AA Margin, AB Margin %. One row per chatbot
-      // PER MONTH (not a single all-time snapshot like the old Commercials sheet), so a chatbot
-      // that's been live for 6 months contributes 6 rows here — that's what lets every date-range
-      // filter below aggregate monthly instead of dumping the whole deal into one month.
+      // "Chatbot R&M" sheet layout — 35 cols, A-AI. Bot Sessions were added in column G,
+      // and both Vendor and Netcore now include Bot Session Rate/Cost columns.
       const rmHeaderRow = rmRows[rmHeaderIdx];
       const findRmCol=(names,fallback)=>{const wanted=names.map(n=>n.toLowerCase());const found=rmHeaderRow.findIndex(h=>wanted.includes((h||"").trim().toLowerCase()));return found>-1?found:fallback;};
       const kClient=findRmCol(["Client"],0), kChatbot=findRmCol(["Chatbot","Project","Project Name"],1),
             kVendor=findRmCol(["Vendor"],2), kMonth=findRmCol(["Month","Billing Month","Revenue Month"],3),
-            kCost=findRmCol(["Total Cost Vendor","Total Vendor Cost","Vendor Cost","Cost"],16),
-            kRev=findRmCol(["Total Revenue Netcore","Total Netcore Revenue","Monthly Revenue","Revenue"],25),
-            kMargin=findRmCol(["Margin"],26);
-      const kAiQty=findRmCol(["AI Session Qty"],5), kAgentQty=findRmCol(["Agents Qty","Agent Qty"],6), kConvQty=findRmCol(["Conversation Qty"],7),
-            kVendorDev=findRmCol(["Dev Cost"],8), kVendorRental=findRmCol(["Monthly Rental"],9),
-            kVendorAi=findRmCol(["AI Session Cost"],11), kVendorAgent=findRmCol(["Agent Cost"],13), kVendorConv=findRmCol(["Conversation Cost"],15),
-            kNetcoreDev=findRmCol(["Dev Revenue"],17), kNetcoreRental=18, kNetcoreAi=findRmCol(["AI Session Revenue"],20),
-            kNetcoreAgent=findRmCol(["Agent Revenue"],22), kNetcoreConv=findRmCol(["Conversation Revenue"],24);
+            kCost=findRmCol(["Total Cost","Total Cost Vendor","Total Vendor Cost","Vendor Cost","Cost"],19),
+            kRev=findRmCol(["Total Revenue","Total Revenue Netcore","Total Netcore Revenue","Monthly Revenue","Revenue"],30),
+            kMargin=findRmCol(["Margin"],31);
+      const kAiQty=findRmCol(["AI Session Qty"],5), kBotQty=findRmCol(["Bot Sessions","Bot Session Qty"],6),
+            kAgentQty=findRmCol(["Agents Qty","Agent Qty"],7), kConvQty=findRmCol(["Conversation Qty"],8),
+            kVendorDev=9, kVendorRental=10, kVendorAi=12, kVendorBot=14, kVendorAgent=16, kVendorConv=18,
+            kNetcoreDev=20, kNetcoreRental=21, kNetcoreAi=23, kNetcoreBot=25, kNetcoreAgent=27, kNetcoreConv=29;
       const num = s => { const n = parseFloat((s||"0").toString().replace(/[₹,]/g,"")); return isNaN(n)?0:n; };
       for(let i=rmHeaderIdx+1;i<rmRows.length;i++){
         const r = rmRows[i]; const chatbot = (r[kChatbot]||"").trim();
@@ -988,9 +982,9 @@ async function syncData(){
         // Chatbot R&M also has formula-generated future month placeholders.
         // Keep a month only after it contains actual revenue, cost or margin data.
         if(!dateOfLive || (!revenue && !cost && !margin)) continue;
-        const qty={ai:num(r[kAiQty]),agent:num(r[kAgentQty]),conversation:num(r[kConvQty])};
-        const revenueParts={dev:num(r[kNetcoreDev]),rental:num(r[kNetcoreRental]),ai:num(r[kNetcoreAi]),agent:num(r[kNetcoreAgent]),conversation:num(r[kNetcoreConv])};
-        const costParts={dev:num(r[kVendorDev]),rental:num(r[kVendorRental]),ai:num(r[kVendorAi]),agent:num(r[kVendorAgent]),conversation:num(r[kVendorConv])};
+        const qty={ai:num(r[kAiQty]),bot:num(r[kBotQty]),agent:num(r[kAgentQty]),conversation:num(r[kConvQty])};
+        const revenueParts={dev:num(r[kNetcoreDev]),rental:num(r[kNetcoreRental]),ai:num(r[kNetcoreAi]),bot:num(r[kNetcoreBot]),agent:num(r[kNetcoreAgent]),conversation:num(r[kNetcoreConv])};
+        const costParts={dev:num(r[kVendorDev]),rental:num(r[kVendorRental]),ai:num(r[kVendorAi]),bot:num(r[kVendorBot]),agent:num(r[kVendorAgent]),conversation:num(r[kVendorConv])};
         newCommercials.push({ client, chatbot, vendor:(r[kVendor]||"").trim()||"Unassigned",
           dateOfLive, revenue, cost, margin, qty, revenueParts, costParts, source:"Chatbot R&M" });
       }

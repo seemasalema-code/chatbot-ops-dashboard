@@ -557,6 +557,20 @@
     .overview{grid-template-columns:1fr;}
   }
 
+/* Final workspace polish: clearer spacing and a single right-side drill-down. */
+.pagenav{gap:14px;row-gap:10px;flex-wrap:wrap}
+.pagetab{margin:0;padding:13px 18px}
+.tabbar,.filter-row,.pipeline-track,.insight-stats{gap:12px;row-gap:12px}
+.records-focus-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(340px,430px);gap:20px;align-items:start;margin-top:18px}
+.records-focus-layout #records{min-width:0;margin-top:0}
+#projectFocusPanel{position:sticky;top:88px;min-width:0;max-height:72vh;overflow:auto}
+#actionKpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px}
+#actionKpis .metric-card{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px}
+#actionKpis .metric-card span{display:block;line-height:1.25}
+#actionKpis .metric-card b{display:block;flex:0 0 auto;font-size:24px}
+.insight-grid{gap:18px}.insight-panel{padding:20px}.filter-row{align-items:center}
+@media(max-width:1100px){.records-focus-layout{grid-template-columns:1fr}#projectFocusPanel{position:static;max-height:none}.pagenav{gap:8px}#actionKpis{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){#actionKpis{grid-template-columns:1fr}.pagetab{padding:11px 13px}.records-focus-layout{gap:14px}}
 </style>
 </head>
 <body>
@@ -652,10 +666,9 @@
       </div>
       <div class="insight-stats" id="insightStats"></div>
       <div class="insight-grid">
-        <div class="insight-panel"><h3>Needs Attention</h3><div class="attention-list" id="attentionList"></div></div>
+        <div class="insight-panel"><h3>Follow-up Required</h3><div class="attention-list" id="attentionList"></div></div>
         <div class="insight-panel"><h3>Upcoming Milestones</h3><div class="milestone-list" id="milestoneList"></div></div>
       </div>
-      <div class="operations-pulse" id="projectOpsPulse"></div>
       <div class="insight-panel">
         <div class="pipeline-head">
           <div><h3>Pipeline</h3><p class="pipeline-subtitle" id="pipelineSubtitle">Latest stage position across the portfolio</p></div>
@@ -667,7 +680,6 @@
         <div class="pipeline-period-note" id="pipelinePeriodNote" style="display:none"></div>
         <div class="pipeline-track" id="pipelineTrack"></div>
       </div>
-      <div class="insight-panel" id="projectFocusPanel"><h3 id="projectFocusTitle">Project Aging</h3><div class="aging-wrap"><table class="aging-table"><thead><tr><th>Chatbot</th><th>Owner</th><th>Stage</th><th>Days in stage</th><th>Next milestone</th><th>Health</th></tr></thead><tbody id="agingBody"></tbody></table></div></div>
     </section>
 
 
@@ -702,6 +714,7 @@
       </div>
     </div>
 
+    <div class="records-focus-layout">
     <section id="records">
       <div class="records-head">
         <div class="records-title"><h2>Records</h2><div class="breadcrumbs" id="breadcrumbs"></div></div>
@@ -714,6 +727,8 @@
         </table>
       </div>
     </section>
+    <div class="insight-panel" id="projectFocusPanel"><h3 id="projectFocusTitle">Project Aging</h3><div class="aging-wrap"><table class="aging-table"><thead><tr><th>Chatbot</th><th>Owner</th><th>Stage</th><th>Days in stage</th><th>Next milestone</th><th>Health</th></tr></thead><tbody id="agingBody"></tbody></table></div></div>
+    </div>
   </section>
 
   <!-- ===================== PAGE: REVENUE & MARGIN ===================== -->
@@ -1331,7 +1346,7 @@ syncBtn.addEventListener("click", ()=>{ syncBtn.disabled=true; syncData().finall
 setInterval(syncData, REFRESH_MS);
 
 /* ---------------- Page nav ---------------- */
-const PAGES = [{id:"executive",label:"Executive Summary"},{id:"chatbots",label:"Projects"},{id:"actions",label:"Action Centre"},{id:"revenue",label:"Chatbots R&M"},{id:"consumable",label:"WA_Consumables"},{id:"rcsconsumable",label:"RCS_Consumables"},{id:"clientsummary",label:"Client Summary"}];
+const PAGES = [{id:"executive",label:"Executive Summary"},{id:"chatbots",label:"Projects"},{id:"revenue",label:"Chatbots R&M"},{id:"consumable",label:"WA_Consumables"},{id:"rcsconsumable",label:"RCS_Consumables"},{id:"clientsummary",label:"Client Summary"},{id:"actions",label:"Action Centre"}];
 let activePage = "executive";
 let clientSummaryOpened = false;
 const pagenav = document.getElementById("pagenav");
@@ -1592,7 +1607,7 @@ function filteredProjects(){
     (!filters.milestone || milestoneMatchesProject(p, filters.milestone, start, end))
   );
 }
-function focusRecords(){ const el=document.getElementById("records"); el.scrollIntoView({behavior:"smooth",block:"start"}); el.classList.remove("flash"); void el.offsetWidth; el.classList.add("flash"); }
+function focusRecords(){ const el=document.querySelector(".records-focus-layout")||document.getElementById("records"); el.scrollIntoView({behavior:"smooth",block:"start"}); const records=document.getElementById("records"); records.classList.remove("flash"); void records.offsetWidth; records.classList.add("flash"); }
 function setStage(s){ filters.stage=s; filters.delayedOnly=false; filters.milestone=null; renderChatbots(); setTimeout(focusRecords,0); }
 function setType(t){ filters.type=t; renderChatbots(); }
 function toggleVendor(v){ filters.vendor = (filters.vendor===v)?null:v; renderChatbots(); }
@@ -1661,10 +1676,11 @@ function opsAction(p){
 function operationalSnapshot(){
   const inactive=new Set(["live","on hold","paused","lost"]),now=new Date();now.setHours(0,0,0,0);
   const active=PROJECTS.filter(p=>!inactive.has(String(p.stage||p.status||"").toLowerCase())&&!p.excludeOperations);
-  const attention=active.filter(p=>String(p.delayFlag||"").toLowerCase().startsWith("delayed")||opsDaysInStage(p)>=14).sort((a,b)=>opsDaysInStage(b)-opsDaysInStage(a));
+  const followUp=active.filter(p=>String(p.delayFlag||"").toLowerCase().startsWith("delayed")||opsDaysInStage(p)>=14).sort((a,b)=>opsDaysInStage(b)-opsDaysInStage(a));
+  const attention=followUp.filter(p=>["development","uat"].includes(String(p.stage||"").toLowerCase()));
   const upcoming=active.filter(p=>p.dates&&p.dates.targetLive&&p.dates.targetLive>=now&&p.dates.targetLive<=new Date(now.getTime()+90*DAY_MS)).sort((a,b)=>a.dates.targetLive-b.dates.targetLive);
   const aggregate=(rows,keyFn)=>rows.reduce((out,p)=>{const key=keyFn(p)||"Unassigned";out[key]=(out[key]||0)+1;return out;},{});
-  return {active,attention,upcoming,owners:aggregate(active,p=>p.salesConnect),blockers:aggregate(attention,opsBlocker),confidence:aggregate(active,opsConfidence)};
+  return {active,followUp,attention,upcoming,owners:aggregate(active,p=>p.salesConnect),blockers:aggregate(followUp,opsBlocker),confidence:aggregate(active,opsConfidence)};
 }
 function rankedList(map,empty="No records available"){
   const rows=Object.entries(map).sort((a,b)=>b[1]-a[1]);
@@ -1679,15 +1695,15 @@ function renderExecutive(){
   const revenue=COMMERCIALS.reduce((n,r)=>n+(+r.revenue||0),0),cost=COMMERCIALS.reduce((n,r)=>n+(+r.cost||0),0),margin=revenue-cost;
   const kpis=[
     ["active","Active projects",snap.active.length,"currently progressing"],
-    ["attention","Needs attention",snap.attention.length,"delayed or stale"],
+    ["attention","Delivery attention",snap.attention.length,"delayed in Development or UAT"],
     ["live","Live portfolio",live,"in production"],
     ["financial","Portfolio margin",fmtINR(margin),revenue?((margin/revenue)*100).toFixed(1)+"% margin":"commercial data pending"]
   ];
   document.getElementById("executiveKpis").innerHTML=kpis.map(k=>'<button class="insight-stat" type="button" data-exec="'+k[0]+'"><div class="is-label">'+k[1]+'</div><div class="is-value">'+k[2]+'</div><div class="is-hint">'+k[3]+'</div></button>').join("");
   document.querySelectorAll('#executiveKpis [data-exec]').forEach(el=>el.addEventListener("click",()=>openProjectInsight(el.dataset.exec==="financial"?"active":el.dataset.exec)));
   const due7=snap.upcoming.filter(p=>(p.dates.targetLive-new Date())<=7*DAY_MS).length;
-  document.getElementById("executivePulse").innerHTML='<div class="pulse-card"><b>Projects requiring action this week</b><strong>'+snap.attention.length+'</strong><span>Prioritised from delay and stage aging</span></div><div class="pulse-card"><b>Upcoming milestones</b><strong>'+due7+'</strong><span>Target go-lives in the next 7 days</span></div><div class="pulse-card"><b>Commercial coverage</b><strong>'+fmtINR(revenue)+'</strong><span>Recorded Netcore revenue across projects</span></div>';
-  document.getElementById("executiveActions").innerHTML=snap.attention.length?snap.attention.slice(0,8).map(p=>'<div class="attention-row"><span class="attention-dot"></span><div><div class="attention-name">'+safeHtml(p.chatbot||p.client)+'</div><div class="attention-meta">'+safeHtml(opsAction(p))+'</div></div><div class="attention-age">'+opsDaysInStage(p)+' days</div></div>').join(""):'<div class="insight-empty">No projects require immediate action.</div>';
+  document.getElementById("executivePulse").innerHTML='<div class="pulse-card"><b>Projects requiring follow-up this week</b><strong>'+snap.followUp.length+'</strong><span>Prioritised from delay and stage aging</span></div><div class="pulse-card"><b>Upcoming milestones</b><strong>'+due7+'</strong><span>Target go-lives in the next 7 days</span></div><div class="pulse-card"><b>Commercial coverage</b><strong>'+fmtINR(revenue)+'</strong><span>Recorded Netcore revenue across projects</span></div>';
+  document.getElementById("executiveActions").innerHTML=snap.followUp.length?snap.followUp.slice(0,8).map(p=>'<div class="attention-row"><span class="attention-dot"></span><div><div class="attention-name">'+safeHtml(p.chatbot||p.client)+'</div><div class="attention-meta">'+safeHtml(opsAction(p))+'</div></div><div class="attention-age">'+opsDaysInStage(p)+' days</div></div>').join(""):'<div class="insight-empty">No projects require follow-up.</div>';
   const outlook=[30,60,90].map(days=>{const n=snap.upcoming.filter(p=>p.dates.targetLive<=new Date(Date.now()+days*DAY_MS)).length;return '<div><span>Next '+days+' days</span><b>'+n+'</b></div>';}).join("");
   document.getElementById("executiveOutlook").innerHTML='<div class="mini-list">'+outlook+'</div>';
   document.getElementById("executiveOwners").innerHTML=rankedList(snap.owners);
@@ -1695,12 +1711,13 @@ function renderExecutive(){
   document.getElementById("executiveConfidence").innerHTML=rankedList(snap.confidence);
 }
 function renderActionCentre(){
-  const snap=operationalSnapshot(),critical=snap.attention.filter(p=>opsConfidence(p)==="Critical"),client=snap.attention.filter(p=>opsBlocker(p)==="Client"),vendor=snap.attention.filter(p=>opsBlocker(p)==="Vendor");
-  document.getElementById("actionCount").textContent=snap.attention.length+" open actions";
-  document.getElementById("actionKpis").innerHTML=[["Critical",critical.length],["Client blockers",client.length],["Vendor blockers",vendor.length],["Due this week",snap.upcoming.filter(p=>(p.dates.targetLive-new Date())<=7*DAY_MS).length]].map(x=>'<div class="metric-card"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join("");
-  document.getElementById("actionBody").innerHTML=snap.attention.length?snap.attention.map(p=>'<tr><td><span class="priority-pill '+opsConfidence(p).toLowerCase().replace(" ","-")+'">'+opsConfidence(p)+'</span></td><td><b>'+safeHtml(p.chatbot||p.client)+'</b><small>'+safeHtml(p.stage)+'</small></td><td>'+safeHtml(opsAction(p))+'</td><td>'+safeHtml(p.salesConnect||"Unassigned")+'</td><td><span class="blocker-pill">'+opsBlocker(p)+'</span></td><td>'+opsDaysInStage(p)+'</td><td>'+(p.dates&&p.dates.targetLive?fmtD(p.dates.targetLive):"—")+'</td></tr>').join(""):'<tr><td colspan="7" class="insight-empty">No open actions.</td></tr>';
+  const snap=operationalSnapshot(),rows=snap.followUp,critical=rows.filter(p=>opsConfidence(p)==="Critical"),client=rows.filter(p=>opsBlocker(p)==="Client"),vendor=rows.filter(p=>opsBlocker(p)==="Vendor");
+  document.getElementById("actionCount").textContent=rows.length+" open actions";
+  const deliveryAttention=critical.filter(p=>["development","uat"].includes(String(p.stage||"").toLowerCase()));
+  document.getElementById("actionKpis").innerHTML=[["Delivery attention",deliveryAttention.length],["Client follow-ups",client.length],["Vendor follow-ups",vendor.length],["Due this week",snap.upcoming.filter(p=>(p.dates.targetLive-new Date())<=7*DAY_MS).length]].map(x=>'<div class="metric-card"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join("");
+  document.getElementById("actionBody").innerHTML=rows.length?rows.map(p=>'<tr><td><span class="priority-pill '+opsConfidence(p).toLowerCase().replace(" ","-")+'">'+opsConfidence(p)+'</span></td><td><b>'+safeHtml(p.chatbot||p.client)+'</b><small>'+safeHtml(p.stage)+'</small></td><td>'+safeHtml(opsAction(p))+'</td><td>'+safeHtml(p.salesConnect||"Unassigned")+'</td><td><span class="blocker-pill">'+opsBlocker(p)+'</span></td><td>'+opsDaysInStage(p)+'</td><td>'+(p.dates&&p.dates.targetLive?fmtD(p.dates.targetLive):"—")+'</td></tr>').join(""):'<tr><td colspan="7" class="insight-empty">No open actions.</td></tr>';
   document.getElementById("actionMix").innerHTML=rankedList(snap.blockers);
-  document.getElementById("actionWeek").innerHTML=snap.attention.length?'<div class="mini-list">'+snap.attention.slice(0,6).map(p=>'<div><span>'+safeHtml(p.chatbot||p.client)+'</span><b>'+opsDaysInStage(p)+'d</b></div>').join("")+'</div>':'<div class="insight-empty">Nothing due.</div>';
+  document.getElementById("actionWeek").innerHTML=rows.length?'<div class="mini-list">'+rows.slice(0,6).map(p=>'<div><span>'+safeHtml(p.chatbot||p.client)+'</span><b>'+opsDaysInStage(p)+'d</b></div>').join("")+'</div>':'<div class="insight-empty">Nothing due.</div>';
 }
 
 function renderProjectInsights(inPeriod){
@@ -1718,29 +1735,31 @@ function renderProjectInsights(inPeriod){
     return d.brief||d.comm||d.dev||d.test||d.liveDate||null;
   };
   const daysInStage=p=>{const d=stageStart(p);return d?Math.max(0,Math.floor((now-d)/dayMs)):0};
-  const inactiveStatuses=new Set(["on hold","paused","lost"]);
+  const inactiveStatuses=new Set(["live","on hold","paused","lost"]);
   const normalizedStatus=p=>String(p.stage||p.status||"").trim().toLowerCase();
   const isOperational=p=>!inactiveStatuses.has(normalizedStatus(p))&&!p.excludeOperations;
-  const active=PROJECTS.filter(p=>normalizedStatus(p)!=="live"&&isOperational(p));
+  const active=PROJECTS.filter(isOperational);
   const delayed=active.filter(p=>(p.delayFlag||"").toLowerCase().startsWith("delayed"));
   const stuck=active.filter(p=>daysInStage(p)>=14&&!delayed.includes(p));
-  const attention=[...delayed,...stuck].sort((a,b)=>daysInStage(b)-daysInStage(a));
+  const followUp=[...new Set([...delayed,...stuck])].sort((a,b)=>daysInStage(b)-daysInStage(a));
+  const deliveryAttention=followUp.filter(p=>["development","uat"].includes(normalizedStatus(p)));
   const next30=new Date(now); next30.setDate(next30.getDate()+30);
   const upcoming=PROJECTS.filter(p=>isOperational(p)&&normalizedStatus(p)!=="live"&&p.dates&&p.dates.targetLive&&p.dates.targetLive>=now&&p.dates.targetLive<=next30).sort((a,b)=>a.dates.targetLive-b.dates.targetLive);
   const wentLive=PROJECTS.filter(p=>inPeriod(p.dates&&p.dates.liveDate)).length;
   const liveInPeriod=PROJECTS.filter(p=>inPeriod(p.dates&&p.dates.liveDate));
   const stats=[
-    ["active","Active Projects",active.length,"excluding live, lost and paused"],
-    ["attention","Needs Attention",attention.length,"delayed or over 14 days in stage"],
+    ["active","Active Projects",active.length,"currently progressing"],
+    ["followup","Follow-up Required",followUp.length,"commercial, closure or delivery follow-up"],
+    ["attention","Delivery Attention",deliveryAttention.length,"delayed in Development or UAT"],
     ["live","Went Live",wentLive,"in the selected period"],
     ["upcoming","Next 30 Days",upcoming.length,"planned go-lives"]
   ];
   const statsEl=document.getElementById("insightStats");
   statsEl.innerHTML=stats.map(s=>'<button type="button" class="insight-stat" data-insight="'+s[0]+'" aria-pressed="false"><div class="is-label">'+s[1]+'</div><div class="is-value">'+s[2]+'</div><div class="is-hint">'+s[3]+'</div></button>').join("");
-  document.getElementById("attentionList").innerHTML=attention.length?attention.slice(0,6).map(p=>{
+  document.getElementById("attentionList").innerHTML=followUp.length?followUp.slice(0,6).map(p=>{
     const isDelayed=delayed.includes(p), days=daysInStage(p);
     return '<div class="attention-row"><span class="attention-dot '+(isDelayed?'':'stuck')+'"></span><div><div class="attention-name">'+safe(p.chatbot||p.client)+'</div><div class="attention-meta">'+safe(p.stage)+(p.delayComment?' · '+safe(p.delayComment):' · no stage movement recorded')+'</div></div><div class="attention-age">'+days+' days in stage</div></div>';
-  }).join(""):'<div class="insight-empty">No projects currently require attention.</div>';
+  }).join(""):'<div class="insight-empty">No projects currently require follow-up.</div>';
   document.getElementById("milestoneList").innerHTML=upcoming.length?upcoming.slice(0,6).map(p=>{
     const d=p.dates.targetLive;
     return '<div class="milestone-row"><div class="milestone-date">'+d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"})+'</div><div><div class="milestone-name">'+safe(p.chatbot||p.client)+'</div><div class="milestone-meta">Expected go-live · '+safe(p.stage)+'</div></div></div>';
@@ -1786,27 +1805,32 @@ function renderProjectInsights(inPeriod){
   const renderFocus=(title,projects)=>{
     document.getElementById("projectFocusTitle").textContent=title;
     document.getElementById("agingBody").innerHTML=projects.length?projects.map(p=>{
-    const days=daysInStage(p), isDelayed=delayed.includes(p), health=isDelayed?"Delayed":days>=14?"Attention":"On track";
+    const days=daysInStage(p), needsFollow=followUp.includes(p), needsDelivery=deliveryAttention.includes(p);
+    const health=needsDelivery?"Delivery attention":needsFollow?"Follow-up":"On track";
     const next=p.dates&&p.dates.targetLive?p.dates.targetLive.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"—";
-    return '<tr><td>'+safe(p.chatbot||p.client)+'</td><td>'+safe(p.salesConnect||"—")+'</td><td>'+safe(p.stage)+'</td><td>'+days+'</td><td>'+next+'</td><td><span class="health-pill '+(isDelayed?'delayed':days>=14?'attention':'')+'">'+health+'</span></td></tr>';
+    return '<tr><td>'+safe(p.chatbot||p.client)+'</td><td>'+safe(p.salesConnect||"—")+'</td><td>'+safe(p.stage)+'</td><td>'+days+'</td><td>'+next+'</td><td><span class="health-pill '+(needsDelivery?'delayed':needsFollow?'attention':'')+'">'+health+'</span></td></tr>';
     }).join(""):'<tr><td colspan="6" class="insight-empty">No projects in this view.</td></tr>';
   };
   const focusSets={
     active:["Active Projects",active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a))],
-    attention:["Projects Needing Attention",attention],
+    followup:["Projects Requiring Follow-up",followUp],
+    attention:["Delivery Attention: Development / UAT",deliveryAttention],
     live:["Projects That Went Live",liveInPeriod.slice().sort((a,b)=>(b.dates.liveDate||0)-(a.dates.liveDate||0))],
     upcoming:["Go-Lives Planned in the Next 30 Days",upcoming]
   };
   const currentPipelineTitles={brief:"Brief / Discovery Projects",commercials:"Projects at Commercials",development:"Projects in Development",uat:"Projects in UAT",live:"Live Projects"};
   const movementPipelineTitles={brief:"New Briefs in the Selected Period",commercials:"Commercials Shared in the Selected Period",development:"Development Starts in the Selected Period",uat:"UAT Starts in the Selected Period",live:"Go-Lives in the Selected Period"};
   const clearPipelineSelection=()=>pipelineEl.querySelectorAll(".pipeline-step").forEach(item=>{item.classList.remove("is-selected");item.setAttribute("aria-pressed","false")});
-  renderFocus("Project Aging",active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a)).slice(0,10));
+  const {start:focusStart,end:focusEnd}=periodBounds(timeChat);
+  const selectedPeriodProjects=PROJECTS.filter(p=>projectMatchesTime(p,timeChat,focusStart,focusEnd));
+  const defaultFocus=selectedPeriodProjects.slice().sort((a,b)=>daysInStage(b)-daysInStage(a));
+  renderFocus("Selected-period Project View",defaultFocus);
   statsEl.querySelectorAll(".insight-stat").forEach(card=>card.addEventListener("click",()=>{
     const wasSelected=card.classList.contains("is-selected");
     statsEl.querySelectorAll(".insight-stat").forEach(x=>{x.classList.remove("is-selected");x.setAttribute("aria-pressed","false")});
     clearPipelineSelection();
     if(wasSelected){
-      renderFocus("Project Aging",active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a)).slice(0,10));
+      renderFocus("Selected-period Project View",defaultFocus);
     }else{
       card.classList.add("is-selected"); card.setAttribute("aria-pressed","true");
       const focus=focusSets[card.dataset.insight]; renderFocus(focus[0],focus[1]);
@@ -1818,7 +1842,7 @@ function renderProjectInsights(inPeriod){
       clearPipelineSelection();
       statsEl.querySelectorAll(".insight-stat").forEach(item=>{item.classList.remove("is-selected");item.setAttribute("aria-pressed","false")});
       if(wasSelected){
-        renderFocus("Project Aging",active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a)).slice(0,10));
+        renderFocus("Selected-period Project View",defaultFocus);
       }else{
         card.classList.add("is-selected");card.setAttribute("aria-pressed","true");
         const titles=pipelineView==="movement"?movementPipelineTitles:currentPipelineTitles;
@@ -1836,10 +1860,8 @@ function renderProjectInsights(inPeriod){
     statsEl.querySelectorAll(".insight-stat").forEach(item=>{item.classList.remove("is-selected");item.setAttribute("aria-pressed","false")});
     drawPipeline();
     bindPipelineCards();
-    renderFocus("Project Aging",active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a)).slice(0,10));
+    renderFocus("Selected-period Project View",defaultFocus);
   }));
-  const pulse=document.getElementById("projectOpsPulse"),snapshot=operationalSnapshot();
-  if(pulse) pulse.innerHTML='<div class="pulse-card"><b>Owner workload</b>'+rankedList(snapshot.owners)+'</div><div class="pulse-card"><b>Blocker categories</b>'+rankedList(snapshot.blockers,"No blockers recorded")+'</div><div class="pulse-card"><b>Delivery confidence</b>'+rankedList(snapshot.confidence)+'</div>';
 }
 
 function renderChatbots(){

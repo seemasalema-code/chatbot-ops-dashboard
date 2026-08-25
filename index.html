@@ -413,7 +413,10 @@
   .insight-heading h2{font-size:20px}
   .insight-heading p{font-size:12px;color:var(--text-faint)}
   .insight-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px}
-  .insight-stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-sm);min-height:112px}
+  .insight-stat{appearance:none;width:100%;font:inherit;color:inherit;text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow-sm);min-height:112px;transition:transform .18s ease,box-shadow .18s ease,border-color .18s ease}
+  .insight-stat:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(38,45,90,.10)}
+  .insight-stat:focus-visible{outline:3px solid rgba(103,80,238,.24);outline-offset:3px}
+  .insight-stat.is-selected{border-color:var(--accent);box-shadow:0 0 0 3px rgba(103,80,238,.13),0 8px 22px rgba(38,45,90,.10)}
   .insight-stat:nth-child(1){background:#F3F0FF;border-color:#DED7FF}
   .insight-stat:nth-child(2){background:#FFF4F1;border-color:#F7D9D2}
   .insight-stat:nth-child(3){background:#EEF9F4;border-color:#CEECDE}
@@ -435,7 +438,10 @@
   .milestone-row{display:grid;grid-template-columns:58px minmax(0,1fr);gap:13px;align-items:center;padding:11px 0;border-bottom:1px solid var(--border)}
   .milestone-date{background:#F1EDFF;color:var(--accent-dark);border-radius:10px;padding:8px 5px;text-align:center;font-size:11px;font-weight:600}
   .pipeline-track{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;align-items:end;margin-top:8px}
-  .pipeline-step{text-align:center}
+  .pipeline-step{appearance:none;width:100%;padding:0;border:0;background:transparent;color:inherit;font:inherit;text-align:center;cursor:pointer;border-radius:12px;transition:transform .16s ease,box-shadow .16s ease}
+  .pipeline-step:hover{transform:translateY(-2px)}
+  .pipeline-step:focus-visible{outline:3px solid rgba(105,81,255,.28);outline-offset:3px}
+  .pipeline-step.is-selected .pipeline-bar{box-shadow:0 0 0 3px var(--accent-dark),0 8px 20px rgba(105,81,255,.16)}
   .pipeline-bar{display:flex;align-items:flex-end;justify-content:center;min-height:58px;padding:14px 8px;border-radius:10px 10px 5px 5px;background:#EEEAFE;color:var(--accent-dark);font-size:18px;font-weight:700}
   .pipeline-step:nth-child(2) .pipeline-bar{min-height:72px;background:#F1EDFF}
   .pipeline-step:nth-child(3) .pipeline-bar{min-height:88px;background:#EAF1FE;color:#2563EB}
@@ -521,7 +527,7 @@
         <div class="insight-panel"><h3>Upcoming Milestones</h3><div class="milestone-list" id="milestoneList"></div></div>
       </div>
       <div class="insight-panel"><h3>Pipeline Movement</h3><div class="pipeline-track" id="pipelineTrack"></div></div>
-      <div class="insight-panel"><h3>Project Aging</h3><div class="aging-wrap"><table class="aging-table"><thead><tr><th>Chatbot</th><th>Owner</th><th>Stage</th><th>Days in stage</th><th>Next milestone</th><th>Health</th></tr></thead><tbody id="agingBody"></tbody></table></div></div>
+      <div class="insight-panel" id="projectFocusPanel"><h3 id="projectFocusTitle">Project Aging</h3><div class="aging-wrap"><table class="aging-table"><thead><tr><th>Chatbot</th><th>Owner</th><th>Stage</th><th>Days in stage</th><th>Next milestone</th><th>Health</th></tr></thead><tbody id="agingBody"></tbody></table></div></div>
     </section>
 
 
@@ -1497,13 +1503,15 @@ function renderProjectInsights(inPeriod){
   const next30=new Date(now); next30.setDate(next30.getDate()+30);
   const upcoming=PROJECTS.filter(p=>isOperational(p)&&normalizedStatus(p)!=="live"&&p.dates&&p.dates.targetLive&&p.dates.targetLive>=now&&p.dates.targetLive<=next30).sort((a,b)=>a.dates.targetLive-b.dates.targetLive);
   const wentLive=PROJECTS.filter(p=>inPeriod(p.dates&&p.dates.liveDate)).length;
+  const liveInPeriod=PROJECTS.filter(p=>inPeriod(p.dates&&p.dates.liveDate));
   const stats=[
-    ["Active Projects",active.length,"excluding live, lost and paused"],
-    ["Needs Attention",attention.length,"delayed or over 14 days in stage"],
-    ["Went Live",wentLive,"in the selected period"],
-    ["Next 30 Days",upcoming.length,"planned go-lives"]
+    ["active","Active Projects",active.length,"excluding live, lost and paused"],
+    ["attention","Needs Attention",attention.length,"delayed or over 14 days in stage"],
+    ["live","Went Live",wentLive,"in the selected period"],
+    ["upcoming","Next 30 Days",upcoming.length,"planned go-lives"]
   ];
-  document.getElementById("insightStats").innerHTML=stats.map(s=>'<div class="insight-stat"><div class="is-label">'+s[0]+'</div><div class="is-value">'+s[1]+'</div><div class="is-hint">'+s[2]+'</div></div>').join("");
+  const statsEl=document.getElementById("insightStats");
+  statsEl.innerHTML=stats.map(s=>'<button type="button" class="insight-stat" data-insight="'+s[0]+'" aria-pressed="false"><div class="is-label">'+s[1]+'</div><div class="is-value">'+s[2]+'</div><div class="is-hint">'+s[3]+'</div></button>').join("");
   document.getElementById("attentionList").innerHTML=attention.length?attention.slice(0,6).map(p=>{
     const isDelayed=delayed.includes(p), days=daysInStage(p);
     return '<div class="attention-row"><span class="attention-dot '+(isDelayed?'':'stuck')+'"></span><div><div class="attention-name">'+safe(p.chatbot||p.client)+'</div><div class="attention-meta">'+safe(p.stage)+(p.delayComment?' · '+safe(p.delayComment):' · no stage movement recorded')+'</div></div><div class="attention-age">'+days+' days in stage</div></div>';
@@ -1512,20 +1520,63 @@ function renderProjectInsights(inPeriod){
     const d=p.dates.targetLive;
     return '<div class="milestone-row"><div class="milestone-date">'+d.toLocaleDateString("en-GB",{day:"2-digit",month:"short"})+'</div><div><div class="milestone-name">'+safe(p.chatbot||p.client)+'</div><div class="milestone-meta">Expected go-live · '+safe(p.stage)+'</div></div></div>';
   }).join(""):'<div class="insight-empty">No planned go-lives in the next 30 days.</div>';
+  const pipelineSets={
+    brief:PROJECTS.filter(p=>p.stage==="Discovery"||p.stage==="Demo Bot"),
+    commercials:PROJECTS.filter(p=>p.stage==="Quotes Given"),
+    development:PROJECTS.filter(p=>p.stage==="Development"),
+    uat:PROJECTS.filter(p=>p.stage==="UAT"),
+    live:PROJECTS.filter(p=>p.stage==="Live")
+  };
   const pipeline=[
-    ["Brief Received",PROJECTS.filter(p=>p.stage==="Discovery"||p.stage==="Demo Bot").length],
-    ["Commercials",PROJECTS.filter(p=>p.stage==="Quotes Given").length],
-    ["Development",PROJECTS.filter(p=>p.stage==="Development").length],
-    ["UAT",PROJECTS.filter(p=>p.stage==="UAT").length],
-    ["Live",PROJECTS.filter(p=>p.stage==="Live").length]
+    ["brief","Brief Received",pipelineSets.brief.length],
+    ["commercials","Commercials",pipelineSets.commercials.length],
+    ["development","Development",pipelineSets.development.length],
+    ["uat","UAT",pipelineSets.uat.length],
+    ["live","Live",pipelineSets.live.length]
   ];
-  document.getElementById("pipelineTrack").innerHTML=pipeline.map(x=>'<div class="pipeline-step"><div class="pipeline-bar">'+x[1]+'</div><div class="pipeline-label">'+x[0]+'</div></div>').join("");
-  const aging=active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a)).slice(0,10);
-  document.getElementById("agingBody").innerHTML=aging.length?aging.map(p=>{
+  const pipelineEl=document.getElementById("pipelineTrack");
+  pipelineEl.innerHTML=pipeline.map(x=>'<button type="button" class="pipeline-step" data-pipeline="'+x[0]+'" aria-pressed="false"><span class="pipeline-bar">'+x[2]+'</span><span class="pipeline-label">'+x[1]+'</span></button>').join("");
+  const renderFocus=(title,projects)=>{
+    document.getElementById("projectFocusTitle").textContent=title;
+    document.getElementById("agingBody").innerHTML=projects.length?projects.map(p=>{
     const days=daysInStage(p), isDelayed=delayed.includes(p), health=isDelayed?"Delayed":days>=14?"Attention":"On track";
     const next=p.dates&&p.dates.targetLive?p.dates.targetLive.toLocaleDateString("en-GB",{day:"2-digit",month:"short",year:"numeric"}):"—";
     return '<tr><td>'+safe(p.chatbot||p.client)+'</td><td>'+safe(p.salesConnect||"—")+'</td><td>'+safe(p.stage)+'</td><td>'+days+'</td><td>'+next+'</td><td><span class="health-pill '+(isDelayed?'delayed':days>=14?'attention':'')+'">'+health+'</span></td></tr>';
-  }).join(""):'<tr><td colspan="6" class="insight-empty">No active projects in this view.</td></tr>';
+    }).join(""):'<tr><td colspan="6" class="insight-empty">No projects in this view.</td></tr>';
+  };
+  const focusSets={
+    active:["Active Projects",active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a))],
+    attention:["Projects Needing Attention",attention],
+    live:["Projects That Went Live",liveInPeriod.slice().sort((a,b)=>(b.dates.liveDate||0)-(a.dates.liveDate||0))],
+    upcoming:["Go-Lives Planned in the Next 30 Days",upcoming]
+  };
+  const pipelineTitles={brief:"Brief Received Projects",commercials:"Projects at Commercials",development:"Projects in Development",uat:"Projects in UAT",live:"Live Projects"};
+  const clearPipelineSelection=()=>pipelineEl.querySelectorAll(".pipeline-step").forEach(item=>{item.classList.remove("is-selected");item.setAttribute("aria-pressed","false")});
+  renderFocus("Project Aging",active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a)).slice(0,10));
+  statsEl.querySelectorAll(".insight-stat").forEach(card=>card.addEventListener("click",()=>{
+    const wasSelected=card.classList.contains("is-selected");
+    statsEl.querySelectorAll(".insight-stat").forEach(x=>{x.classList.remove("is-selected");x.setAttribute("aria-pressed","false")});
+    clearPipelineSelection();
+    if(wasSelected){
+      renderFocus("Project Aging",active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a)).slice(0,10));
+    }else{
+      card.classList.add("is-selected"); card.setAttribute("aria-pressed","true");
+      const focus=focusSets[card.dataset.insight]; renderFocus(focus[0],focus[1]);
+    }
+    document.getElementById("projectFocusPanel").scrollIntoView({behavior:"smooth",block:"start"});
+  }));
+  pipelineEl.querySelectorAll(".pipeline-step").forEach(card=>card.addEventListener("click",()=>{
+    const key=card.dataset.pipeline,wasSelected=card.classList.contains("is-selected");
+    clearPipelineSelection();
+    statsEl.querySelectorAll(".insight-stat").forEach(item=>{item.classList.remove("is-selected");item.setAttribute("aria-pressed","false")});
+    if(wasSelected){
+      renderFocus("Project Aging",active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a)).slice(0,10));
+    }else{
+      card.classList.add("is-selected");card.setAttribute("aria-pressed","true");
+      renderFocus(pipelineTitles[key],pipelineSets[key].slice().sort((a,b)=>daysInStage(b)-daysInStage(a)));
+    }
+    document.getElementById("projectFocusPanel").scrollIntoView({behavior:"smooth",block:"start"});
+  }));
 }
 
 function renderChatbots(){
@@ -2592,4 +2643,3 @@ syncData();
 </script>
 </body>
 </html>
-

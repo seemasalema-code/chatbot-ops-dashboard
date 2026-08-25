@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Netcore Cloud — Chatbot Ops Console</title>
+<title>Netcore Cloud — Conversational AI Operations Console</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
@@ -467,7 +467,7 @@
   @media(max-width:560px){.insight-stats{grid-template-columns:1fr}.pipeline-head{display:grid}.pipeline-view-toggle{width:100%;display:grid;grid-template-columns:1fr 1fr}.pipeline-track{grid-template-columns:1fr}.pipeline-step{display:grid;grid-template-columns:1fr 1.6fr;align-items:center;text-align:left}.pipeline-bar{min-height:44px!important}.attention-row{grid-template-columns:10px 1fr}.attention-age{grid-column:2}}
 
   /* Wide, website-style application frame shared by every dashboard tab. */
-  :root{--app-max:1760px;--app-gutter:clamp(18px,2.1vw,38px);--section-gap:clamp(18px,1.45vw,26px);--radius:18px;}
+  :root{--app-max:1540px;--app-gutter:clamp(18px,2.2vw,34px);--section-gap:18px;--radius:16px;}
   body{
     background:
       radial-gradient(circle at 8% 12%,rgba(109,94,240,.055),transparent 25%),
@@ -478,35 +478,35 @@
     width:min(100%,var(--app-max));max-width:var(--app-max);
     padding-left:var(--app-gutter);padding-right:var(--app-gutter);
   }
-  header{padding-top:30px;align-items:center;}
-  .pagenav{padding-top:18px;gap:10px;overflow-x:auto;scrollbar-width:none;}
+  header{padding-top:24px;align-items:center;}
+  .pagenav{padding-top:14px;gap:8px;overflow-x:auto;scrollbar-width:none;}
   .pagenav::-webkit-scrollbar{display:none;}
-  .pagetab{padding:13px 22px;font-size:14px;white-space:nowrap;}
-  main{padding-top:28px;}
+  .pagetab{padding:11px 17px;font-size:13px;white-space:nowrap;}
+  main{padding-top:20px;}
   footer{margin-top:34px;padding-bottom:24px;}
 
   .page.active{animation:page-enter .22s ease-out;}
   @keyframes page-enter{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
   .kpi-row,.insight-stats{gap:var(--section-gap);}
-  .kpi,.insight-stat{min-height:132px;padding:24px 26px;border-radius:18px;}
-  .kpi .value{font-size:clamp(32px,2.1vw,42px);}
-  .timebar{gap:16px 20px;padding:18px 22px;margin-top:20px;border-radius:18px;}
+  .kpi,.insight-stat{min-height:108px;padding:18px 20px;border-radius:16px;}
+  .kpi .value{font-size:clamp(29px,1.8vw,36px);}
+  .timebar{gap:12px 16px;padding:14px 18px;margin-top:16px;border-radius:16px;}
   .timebar .tf-group{gap:9px;}
   .period-label{padding-left:12px;}
-  .period-stats{gap:12px;margin-top:16px;}
-  .pstat{padding:12px 14px;border:1px solid transparent;}
+  .period-stats{gap:10px;margin-top:12px;}
+  .pstat{padding:10px 12px;border:1px solid transparent;}
   .panel,.insight-panel,#records,.records,.weekly-change-summary{border-radius:18px;}
-  .overview{grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:var(--section-gap);margin-top:22px;}
-  .panel{padding:26px;}
+  .overview{grid-template-columns:minmax(250px,300px) minmax(0,1fr);gap:var(--section-gap);margin-top:18px;}
+  .panel{padding:20px;}
   .tabbar{gap:10px 12px;}
   .tab,.chip{padding:9px 16px;}
-  .project-insights{gap:var(--section-gap);margin-top:26px;}
+  .project-insights{gap:var(--section-gap);margin-top:20px;}
   .insight-grid{grid-template-columns:minmax(0,1.75fr) minmax(320px,.75fr);gap:var(--section-gap);}
-  .insight-panel{padding:26px;}
+  .insight-panel{padding:20px;}
   .pipeline-track{gap:14px;}
-  .records-head{padding:22px 26px;}
+  .records-head{padding:17px 20px;}
   table.rev th,table.data thead th{padding-top:12px;padding-bottom:12px;}
-  table.rev td,table.data tbody td{padding-top:14px;padding-bottom:14px;}
+  table.rev td,table.data tbody td{padding-top:11px;padding-bottom:11px;}
 
   .rev-layout{grid-template-columns:minmax(0,1fr) minmax(420px,31%);gap:var(--section-gap);}
   #page-revenue .rev-layout{gap:var(--section-gap);margin-top:var(--section-gap);}
@@ -514,6 +514,23 @@
   #page-consumable .consumable-layout{grid-template-columns:minmax(0,1.7fr) minmax(360px,.72fr);gap:var(--section-gap);}
   .cs-rev-layout{gap:var(--section-gap);}
   .cs-groups,.cs-groups-pair,.cs-trend-row{gap:var(--section-gap);}
+
+  /* Compact website workspace: a useful main canvas plus a persistent insight rail. */
+  .app-intro{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:16px}
+  .app-intro h2{font-size:22px;margin:0 0 4px}.app-intro p{font-size:12px;color:var(--text-muted)}
+  .workspace-grid{display:grid;grid-template-columns:minmax(0,1fr) 350px;gap:18px;align-items:start}
+  .workspace-main,.workspace-rail{display:grid;gap:18px;min-width:0}
+  .workspace-rail{position:sticky;top:18px}
+  .rail-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:18px;box-shadow:0 8px 24px rgba(37,31,78,.045)}
+  .rail-card h3{font-size:14px;margin:0 0 12px}.rail-card .rail-sub{font-size:10px;color:var(--text-faint);margin:-7px 0 12px}
+  .mini-list{display:grid;gap:0}.mini-row,.mini-list>div{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);font-size:11px}.mini-row:last-child,.mini-list>div:last-child{border:0}.mini-row b,.mini-list>div b{font-size:12px}.mini-value{font-weight:700;color:var(--accent-dark)}
+  .metric-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}.metric-card{appearance:none;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;color:inherit;font:inherit;cursor:pointer}.metric-card:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(44,34,96,.08)}.metric-label{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--text-faint);font-weight:700}.metric-value{font-size:27px;font-weight:700;margin-top:7px}.metric-hint{font-size:10px;color:var(--text-muted);margin-top:3px}
+  .executive-section{display:none}.page.active.executive-section{display:block}.action-table-wrap{max-height:520px;overflow:auto}.action-table{width:100%;border-collapse:collapse}.action-table th,.action-table td{padding:11px 10px;border-bottom:1px solid var(--border);text-align:left;font-size:11px}.action-table td small{display:block;color:var(--text-muted);margin-top:4px}.action-table th{position:sticky;top:0;background:#F8F8FD;color:var(--text-faint);font-size:9px;text-transform:uppercase;letter-spacing:.06em}.priority-pill{display:inline-flex;border-radius:20px;padding:5px 8px;font-size:9px;font-weight:700}.priority-pill.critical{background:#FDEAEA;color:#C92323}.priority-pill.at-risk{background:#FFF1D9;color:#9A5B0B}.priority-pill.on-track{background:#E8F7EF;color:#147A45}.blocker-pill,.blocker-chip{display:inline-flex;padding:5px 8px;border-radius:20px;background:#F1EDFF;color:var(--accent-dark);font-size:9px;font-weight:600}.confidence-bar{height:7px;background:#EEF0F7;border-radius:9px;overflow:hidden;margin-top:5px}.confidence-fill{height:100%;background:linear-gradient(90deg,#18A558,#78D79D);border-radius:inherit}.confidence-fill.risk{background:linear-gradient(90deg,#E9A11A,#F2CB72)}.confidence-fill.critical{background:linear-gradient(90deg,#D52B2B,#F18D8D)}
+  .operations-pulse{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}.pulse-box,.pulse-card{padding:14px;border-radius:13px;background:#F8F8FD;border:1px solid var(--border);min-width:0}.pulse-card>b{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);margin-bottom:8px}.pulse-card>strong{display:block;font-size:24px;margin-bottom:4px}.pulse-card>span{font-size:10px;color:var(--text-muted)}.pulse-box h4{font-size:10px;text-transform:uppercase;letter-spacing:.07em;color:var(--text-faint);margin:0 0 10px}
+  .project-insights .insight-stats{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+  @media(max-width:1180px){.workspace-grid{grid-template-columns:1fr}.workspace-rail{position:static;grid-template-columns:repeat(2,minmax(0,1fr))}.metric-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:700px){.workspace-rail{grid-template-columns:1fr}.metric-grid,.operations-pulse{grid-template-columns:1fr 1fr}.app-intro{display:grid}.app-intro h2{font-size:19px}}
 
   @media(min-width:1500px){
     .hero::before{right:-40px;width:620px;}
@@ -547,8 +564,8 @@
 <div class="hero">
   <header>
     <div>
-      <div class="brand-eyebrow">NETCORE CLOUD · OPS CONSOLE</div>
-      <h1>Chatbot Deployment <span>Dashboard</span></h1>
+      <div class="brand-eyebrow">NETCORE CLOUD · DELIVERY INTELLIGENCE</div>
+      <h1>Conversational AI <span>Operations Console</span></h1>
     </div>
     <div style="display:flex; align-items:center; gap:12px;">
       <span class="change-badge" id="changeBadge">● updated</span>
@@ -565,8 +582,39 @@
 
 <main>
 
+  <!-- ===================== PAGE: EXECUTIVE SUMMARY ===================== -->
+  <section class="page executive-section active" id="page-executive">
+    <div class="app-intro"><div><h2>Executive Summary</h2><p>Portfolio health, commercial outlook and the decisions that need attention now</p></div><div class="period-label" id="executivePeriod">Live portfolio view</div></div>
+    <div class="metric-grid" id="executiveKpis"></div>
+    <div class="workspace-grid" style="margin-top:18px">
+      <div class="workspace-main">
+        <div class="insight-panel"><h3>Portfolio Pulse</h3><div class="operations-pulse" id="executivePulse"></div></div>
+        <div class="insight-panel"><h3>Priority Actions</h3><div class="attention-list" id="executiveActions"></div></div>
+        <div class="insight-panel"><h3>30 / 60 / 90 Day Outlook</h3><div class="pipeline-track" id="executiveOutlook"></div></div>
+      </div>
+      <aside class="workspace-rail">
+        <div class="rail-card"><h3>Owner Workload</h3><p class="rail-sub">Active and at-risk work by owner</p><div class="mini-list" id="executiveOwners"></div></div>
+        <div class="rail-card"><h3>Blockers</h3><p class="rail-sub">What is stopping delivery</p><div class="mini-list" id="executiveBlockers"></div></div>
+        <div class="rail-card"><h3>Delivery Confidence</h3><div class="mini-list" id="executiveConfidence"></div></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== PAGE: ACTION CENTRE ===================== -->
+  <section class="page executive-section" id="page-actions">
+    <div class="app-intro"><div><h2>Action Centre</h2><p>One working list for delayed, stale and upcoming project actions</p></div><div class="rec-count" id="actionCount"></div></div>
+    <div class="metric-grid" id="actionKpis"></div>
+    <div class="workspace-grid" style="margin-top:18px">
+      <div class="insight-panel action-table-wrap"><table class="action-table"><thead><tr><th>Priority</th><th>Project</th><th>Required action</th><th>Follow up with</th><th>Blocker</th><th>Pending</th><th>Due</th></tr></thead><tbody id="actionBody"></tbody></table></div>
+      <aside class="workspace-rail">
+        <div class="rail-card"><h3>Action Mix</h3><div class="mini-list" id="actionMix"></div></div>
+        <div class="rail-card"><h3>This Week</h3><p class="rail-sub">Recommended order of attention</p><div class="mini-list" id="actionWeek"></div></div>
+      </aside>
+    </div>
+  </section>
+
   <!-- ===================== PAGE: CHATBOTS ===================== -->
-  <section class="page active" id="page-chatbots">
+  <section class="page" id="page-chatbots">
     <div class="kpi-row" id="kpiRow"></div>
 
     <div class="timebar">
@@ -607,6 +655,7 @@
         <div class="insight-panel"><h3>Needs Attention</h3><div class="attention-list" id="attentionList"></div></div>
         <div class="insight-panel"><h3>Upcoming Milestones</h3><div class="milestone-list" id="milestoneList"></div></div>
       </div>
+      <div class="operations-pulse" id="projectOpsPulse"></div>
       <div class="insight-panel">
         <div class="pipeline-head">
           <div><h3>Pipeline</h3><p class="pipeline-subtitle" id="pipelineSubtitle">Latest stage position across the portfolio</p></div>
@@ -1282,8 +1331,8 @@ syncBtn.addEventListener("click", ()=>{ syncBtn.disabled=true; syncData().finall
 setInterval(syncData, REFRESH_MS);
 
 /* ---------------- Page nav ---------------- */
-const PAGES = [{id:"chatbots",label:"Projects"},{id:"revenue",label:"Chatbots R&M"},{id:"consumable",label:"WA_Consumables"},{id:"rcsconsumable",label:"RCS_Consumables"},{id:"clientsummary",label:"Client Summary"}];
-let activePage = "chatbots";
+const PAGES = [{id:"executive",label:"Executive Summary"},{id:"chatbots",label:"Projects"},{id:"actions",label:"Action Centre"},{id:"revenue",label:"Chatbots R&M"},{id:"consumable",label:"WA_Consumables"},{id:"rcsconsumable",label:"RCS_Consumables"},{id:"clientsummary",label:"Client Summary"}];
+let activePage = "executive";
 let clientSummaryOpened = false;
 const pagenav = document.getElementById("pagenav");
 PAGES.forEach(p=>{
@@ -1570,6 +1619,90 @@ document.getElementById("clearFiltersBtn").addEventListener("click", clearFilter
 
 /* ---------------- Render: Chatbots page ---------------- */
 
+const DAY_MS=86400000;
+function safeHtml(value){return String(value==null?"":value).replace(/[&<>"']/g,ch=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[ch]));}
+function opsStageStart(p){
+  const s=String(p.stage||"").toLowerCase(),d=p.dates||{};
+  if(s==="live") return d.liveDate||d.test||d.dev||d.comm||d.brief;
+  if(s==="uat") return d.test||d.dev||d.comm||d.brief;
+  if(s==="development") return d.dev||d.comm||d.brief;
+  if(s==="quotes given"||s==="commercials shared") return d.comm||d.brief;
+  return d.brief||d.comm||d.dev||d.test||d.liveDate||null;
+}
+function opsDaysInStage(p){const d=opsStageStart(p),today=new Date();today.setHours(0,0,0,0);return d?Math.max(0,Math.floor((today-d)/DAY_MS)):0;}
+function opsBlocker(p){
+  const text=(String(p.delayComment||"")+" "+String(p.status||"")+" "+String(p.stage||"")).toLowerCase();
+  if(/client|customer|brd|agreement|creative|input/.test(text)) return "Client";
+  if(/kevit|limechat|consense|talkk|vendor/.test(text)) return "Vendor";
+  if(/commercial|quote|cost|pricing/.test(text)) return "Commercial";
+  if(/\bpo\b|purchase order/.test(text)) return "PO";
+  if(/api|integration|technical|panel/.test(text)) return "API";
+  if(/approval|approve/.test(text)) return "Approval";
+  return "Internal";
+}
+function opsConfidence(p){
+  const days=opsDaysInStage(p),delayed=String(p.delayFlag||"").toLowerCase().startsWith("delayed");
+  if(delayed||days>=30) return "Critical";
+  if(days>=14) return "At risk";
+  return "On track";
+}
+function opsAction(p){
+  const blocker=opsBlocker(p),stage=String(p.stage||"");
+  if(blocker==="Client") return "Follow up for the pending client input and confirm the next date";
+  if(blocker==="Vendor") return "Obtain the pending vendor update and a committed delivery date";
+  if(blocker==="Commercial") return "Close the commercials and confirm the development decision";
+  if(blocker==="PO") return "Confirm PO or written approval before development proceeds";
+  if(blocker==="API") return "Resolve the API or technical dependency and revise the delivery plan";
+  if(blocker==="Approval") return "Secure the pending approval and record the committed next step";
+  if(stage==="Development") return "Confirm development progress, blockers and target UAT date";
+  if(stage==="UAT") return "Close UAT observations and confirm the go-live date";
+  return "Confirm the owner, next step and follow-up date";
+}
+function operationalSnapshot(){
+  const inactive=new Set(["live","on hold","paused","lost"]),now=new Date();now.setHours(0,0,0,0);
+  const active=PROJECTS.filter(p=>!inactive.has(String(p.stage||p.status||"").toLowerCase())&&!p.excludeOperations);
+  const attention=active.filter(p=>String(p.delayFlag||"").toLowerCase().startsWith("delayed")||opsDaysInStage(p)>=14).sort((a,b)=>opsDaysInStage(b)-opsDaysInStage(a));
+  const upcoming=active.filter(p=>p.dates&&p.dates.targetLive&&p.dates.targetLive>=now&&p.dates.targetLive<=new Date(now.getTime()+90*DAY_MS)).sort((a,b)=>a.dates.targetLive-b.dates.targetLive);
+  const aggregate=(rows,keyFn)=>rows.reduce((out,p)=>{const key=keyFn(p)||"Unassigned";out[key]=(out[key]||0)+1;return out;},{});
+  return {active,attention,upcoming,owners:aggregate(active,p=>p.salesConnect),blockers:aggregate(attention,opsBlocker),confidence:aggregate(active,opsConfidence)};
+}
+function rankedList(map,empty="No records available"){
+  const rows=Object.entries(map).sort((a,b)=>b[1]-a[1]);
+  return rows.length?'<div class="mini-list">'+rows.map(([name,count])=>'<div><span>'+safeHtml(name)+'</span><b>'+count+'</b></div>').join("")+'</div>':'<div class="insight-empty">'+empty+'</div>';
+}
+function openProjectInsight(kind){
+  const tab=document.querySelector('.pagetab[data-page="chatbots"]');if(tab)tab.click();
+  setTimeout(()=>{const card=document.querySelector('.insight-stat[data-insight="'+kind+'"]');if(card)card.click();},40);
+}
+function renderExecutive(){
+  const snap=operationalSnapshot(),live=PROJECTS.filter(p=>String(p.stage||"").toLowerCase()==="live").length;
+  const revenue=COMMERCIALS.reduce((n,r)=>n+(+r.revenue||0),0),cost=COMMERCIALS.reduce((n,r)=>n+(+r.cost||0),0),margin=revenue-cost;
+  const kpis=[
+    ["active","Active projects",snap.active.length,"currently progressing"],
+    ["attention","Needs attention",snap.attention.length,"delayed or stale"],
+    ["live","Live portfolio",live,"in production"],
+    ["financial","Portfolio margin",fmtINR(margin),revenue?((margin/revenue)*100).toFixed(1)+"% margin":"commercial data pending"]
+  ];
+  document.getElementById("executiveKpis").innerHTML=kpis.map(k=>'<button class="insight-stat" type="button" data-exec="'+k[0]+'"><div class="is-label">'+k[1]+'</div><div class="is-value">'+k[2]+'</div><div class="is-hint">'+k[3]+'</div></button>').join("");
+  document.querySelectorAll('#executiveKpis [data-exec]').forEach(el=>el.addEventListener("click",()=>openProjectInsight(el.dataset.exec==="financial"?"active":el.dataset.exec)));
+  const due7=snap.upcoming.filter(p=>(p.dates.targetLive-new Date())<=7*DAY_MS).length;
+  document.getElementById("executivePulse").innerHTML='<div class="pulse-card"><b>Projects requiring action this week</b><strong>'+snap.attention.length+'</strong><span>Prioritised from delay and stage aging</span></div><div class="pulse-card"><b>Upcoming milestones</b><strong>'+due7+'</strong><span>Target go-lives in the next 7 days</span></div><div class="pulse-card"><b>Commercial coverage</b><strong>'+fmtINR(revenue)+'</strong><span>Recorded Netcore revenue across projects</span></div>';
+  document.getElementById("executiveActions").innerHTML=snap.attention.length?snap.attention.slice(0,8).map(p=>'<div class="attention-row"><span class="attention-dot"></span><div><div class="attention-name">'+safeHtml(p.chatbot||p.client)+'</div><div class="attention-meta">'+safeHtml(opsAction(p))+'</div></div><div class="attention-age">'+opsDaysInStage(p)+' days</div></div>').join(""):'<div class="insight-empty">No projects require immediate action.</div>';
+  const outlook=[30,60,90].map(days=>{const n=snap.upcoming.filter(p=>p.dates.targetLive<=new Date(Date.now()+days*DAY_MS)).length;return '<div><span>Next '+days+' days</span><b>'+n+'</b></div>';}).join("");
+  document.getElementById("executiveOutlook").innerHTML='<div class="mini-list">'+outlook+'</div>';
+  document.getElementById("executiveOwners").innerHTML=rankedList(snap.owners);
+  document.getElementById("executiveBlockers").innerHTML=rankedList(snap.blockers,"No blockers recorded");
+  document.getElementById("executiveConfidence").innerHTML=rankedList(snap.confidence);
+}
+function renderActionCentre(){
+  const snap=operationalSnapshot(),critical=snap.attention.filter(p=>opsConfidence(p)==="Critical"),client=snap.attention.filter(p=>opsBlocker(p)==="Client"),vendor=snap.attention.filter(p=>opsBlocker(p)==="Vendor");
+  document.getElementById("actionCount").textContent=snap.attention.length+" open actions";
+  document.getElementById("actionKpis").innerHTML=[["Critical",critical.length],["Client blockers",client.length],["Vendor blockers",vendor.length],["Due this week",snap.upcoming.filter(p=>(p.dates.targetLive-new Date())<=7*DAY_MS).length]].map(x=>'<div class="metric-card"><span>'+x[0]+'</span><b>'+x[1]+'</b></div>').join("");
+  document.getElementById("actionBody").innerHTML=snap.attention.length?snap.attention.map(p=>'<tr><td><span class="priority-pill '+opsConfidence(p).toLowerCase().replace(" ","-")+'">'+opsConfidence(p)+'</span></td><td><b>'+safeHtml(p.chatbot||p.client)+'</b><small>'+safeHtml(p.stage)+'</small></td><td>'+safeHtml(opsAction(p))+'</td><td>'+safeHtml(p.salesConnect||"Unassigned")+'</td><td><span class="blocker-pill">'+opsBlocker(p)+'</span></td><td>'+opsDaysInStage(p)+'</td><td>'+(p.dates&&p.dates.targetLive?fmtD(p.dates.targetLive):"—")+'</td></tr>').join(""):'<tr><td colspan="7" class="insight-empty">No open actions.</td></tr>';
+  document.getElementById("actionMix").innerHTML=rankedList(snap.blockers);
+  document.getElementById("actionWeek").innerHTML=snap.attention.length?'<div class="mini-list">'+snap.attention.slice(0,6).map(p=>'<div><span>'+safeHtml(p.chatbot||p.client)+'</span><b>'+opsDaysInStage(p)+'d</b></div>').join("")+'</div>':'<div class="insight-empty">Nothing due.</div>';
+}
+
 function renderProjectInsights(inPeriod){
   const root=document.getElementById("projectInsights");
   if(!root) return;
@@ -1705,6 +1838,8 @@ function renderProjectInsights(inPeriod){
     bindPipelineCards();
     renderFocus("Project Aging",active.slice().sort((a,b)=>daysInStage(b)-daysInStage(a)).slice(0,10));
   }));
+  const pulse=document.getElementById("projectOpsPulse"),snapshot=operationalSnapshot();
+  if(pulse) pulse.innerHTML='<div class="pulse-card"><b>Owner workload</b>'+rankedList(snapshot.owners)+'</div><div class="pulse-card"><b>Blocker categories</b>'+rankedList(snapshot.blockers,"No blockers recorded")+'</div><div class="pulse-card"><b>Delivery confidence</b>'+rankedList(snapshot.confidence)+'</div>';
 }
 
 function renderChatbots(){
@@ -2609,7 +2744,9 @@ function renderClientSummary(){
 }
 
 function renderAll(){
+  renderExecutive();
   renderChatbots();
+  renderActionCentre();
   renderRevenue();
   renderConsumable();
   renderClientSummary();

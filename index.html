@@ -459,6 +459,80 @@
   @media(max-width:900px){.insight-stats{grid-template-columns:repeat(2,1fr)}.insight-grid{grid-template-columns:1fr}}
   @media(max-width:560px){.insight-stats{grid-template-columns:1fr}.pipeline-track{grid-template-columns:1fr}.pipeline-step{display:grid;grid-template-columns:1fr 1.6fr;align-items:center;text-align:left}.pipeline-bar{min-height:44px!important}.attention-row{grid-template-columns:10px 1fr}.attention-age{grid-column:2}}
 
+  /* Wide, website-style application frame shared by every dashboard tab. */
+  :root{--app-max:1760px;--app-gutter:clamp(18px,2.1vw,38px);--section-gap:clamp(18px,1.45vw,26px);--radius:18px;}
+  body{
+    background:
+      radial-gradient(circle at 8% 12%,rgba(109,94,240,.055),transparent 25%),
+      radial-gradient(circle at 94% 8%,rgba(15,181,166,.05),transparent 24%),
+      var(--bg);
+  }
+  header,.pagenav,main,footer,.sync-error-banner{
+    width:min(100%,var(--app-max));max-width:var(--app-max);
+    padding-left:var(--app-gutter);padding-right:var(--app-gutter);
+  }
+  header{padding-top:30px;align-items:center;}
+  .pagenav{padding-top:18px;gap:10px;overflow-x:auto;scrollbar-width:none;}
+  .pagenav::-webkit-scrollbar{display:none;}
+  .pagetab{padding:13px 22px;font-size:14px;white-space:nowrap;}
+  main{padding-top:28px;}
+  footer{margin-top:34px;padding-bottom:24px;}
+
+  .page.active{animation:page-enter .22s ease-out;}
+  @keyframes page-enter{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .kpi-row,.insight-stats{gap:var(--section-gap);}
+  .kpi,.insight-stat{min-height:132px;padding:24px 26px;border-radius:18px;}
+  .kpi .value{font-size:clamp(32px,2.1vw,42px);}
+  .timebar{gap:16px 20px;padding:18px 22px;margin-top:20px;border-radius:18px;}
+  .timebar .tf-group{gap:9px;}
+  .period-label{padding-left:12px;}
+  .period-stats{gap:12px;margin-top:16px;}
+  .pstat{padding:12px 14px;border:1px solid transparent;}
+  .panel,.insight-panel,#records,.records,.weekly-change-summary{border-radius:18px;}
+  .overview{grid-template-columns:minmax(280px,340px) minmax(0,1fr);gap:var(--section-gap);margin-top:22px;}
+  .panel{padding:26px;}
+  .tabbar{gap:10px 12px;}
+  .tab,.chip{padding:9px 16px;}
+  .project-insights{gap:var(--section-gap);margin-top:26px;}
+  .insight-grid{grid-template-columns:minmax(0,1.75fr) minmax(320px,.75fr);gap:var(--section-gap);}
+  .insight-panel{padding:26px;}
+  .pipeline-track{gap:14px;}
+  .records-head{padding:22px 26px;}
+  table.rev th,table.data thead th{padding-top:12px;padding-bottom:12px;}
+  table.rev td,table.data tbody td{padding-top:14px;padding-bottom:14px;}
+
+  .rev-layout{grid-template-columns:minmax(0,1fr) minmax(420px,31%);gap:var(--section-gap);}
+  #page-revenue .rev-layout{gap:var(--section-gap);margin-top:var(--section-gap);}
+  #page-revenue .rev-main>.panel + .panel,#page-revenue #recordsRev{margin-top:var(--section-gap)!important;}
+  #page-consumable .consumable-layout{grid-template-columns:minmax(0,1.7fr) minmax(360px,.72fr);gap:var(--section-gap);}
+  .cs-rev-layout{gap:var(--section-gap);}
+  .cs-groups,.cs-groups-pair,.cs-trend-row{gap:var(--section-gap);}
+
+  @media(min-width:1500px){
+    .hero::before{right:-40px;width:620px;}
+    .kpi-row{grid-template-columns:repeat(4,minmax(0,1fr));}
+    .period-stats{grid-template-columns:repeat(6,minmax(0,1fr));}
+    .records-body{max-height:560px;}
+    #page-consumable #recordsCons .records-body{max-height:590px;}
+  }
+  @media(max-width:1180px){
+    .rev-layout,#page-consumable .consumable-layout,.insight-grid{grid-template-columns:1fr;}
+    .rev-side{position:static;}
+  }
+  @media(max-width:760px){
+    :root{--app-gutter:14px;--section-gap:14px;}
+    header{padding-top:22px;align-items:flex-start;}
+    h1{font-size:27px;}
+    .pagenav{gap:6px;padding-top:14px;}
+    .pagetab{font-size:12.5px;padding:11px 14px;}
+    main{padding-top:18px;}
+    .kpi,.insight-stat{min-height:108px;padding:18px;}
+    .timebar{padding:15px;}
+    .timebar .tf-group{width:100%;flex-wrap:wrap;}
+    .period-label{margin-left:0;padding-left:0;width:100%;}
+    .overview{grid-template-columns:1fr;}
+  }
+
 </style>
 </head>
 <body>
